@@ -43,6 +43,7 @@ class StudentController(RobotController):
 			map_data:	A MapMetaData containing the current map meta data.
 		'''
 		rospy.loginfo('Got a map update.')
+		self.map = map
 
 		# It's possible that the position passed to this function is None.  This try-except block will deal
 		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
