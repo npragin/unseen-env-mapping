@@ -164,6 +164,57 @@ def find_best_point(im, possible_points, robot_loc):
 
     return closest_point
 
+def new_find_best_point(im, robot_loc):
+    #TODO: Fix early termination so we can find optimal path
+    #TODO: Make sure paths aren't too close
+    priority_queue = []
+    heapq.heappush(priority_queue, (0, robot_loc))
+    visited = {}
+    parents = {}
+    parents[robot_loc] = None
+    nearest = None
+    nearest_distance = np.inf
+
+    while priority_queue and nearest is None:
+        curr_node_distance, curr_node = heapq.heappop(priority_queue)
+
+        if curr_node in visited:
+            continue
+
+        visited[curr_node] = curr_node_distance
+
+        for di in [-1, 0, 1]:
+            for dj in [-1, 0, 1]:
+                if di == 0 and dj == 0:
+                    continue
+
+                neighbor = (curr_node[0] + di, curr_node[1] + dj)
+                neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
+
+                if is_wall(im, neighbor):
+                    continue
+                
+                if neighbor not in visited:
+                    parents[neighbor] = curr_node
+                    heapq.heappush(priority_queue, (neighbor_distance, neighbor))
+
+                if im[neighbor[1]][neighbor[0]] == 128 and neighbor_distance < nearest_distance:
+                    nearest = neighbor
+                    nearest_distance = neighbor_distance
+                    break
+            
+            if nearest:
+                break
+
+    path = []
+    current = nearest
+    while current:
+        path.append(current)
+        current = parents[current]
+    path.reverse()
+
+    return path
+
 def calculate_distance(point1, point2):
     """Calculate Euclidean distance between two points."""
     return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
