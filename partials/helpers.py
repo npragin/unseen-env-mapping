@@ -10,3 +10,12 @@ def world_to_map(x, y, map):
         return None
 
     return grid_x + grid_y * map.info.width
+
+def grid_to_world(index, map):
+    grid_x = index % map.info.width
+    grid_y = index // map.info.width
+    
+    world_x = grid_x * map.info.resolution + map.info.origin.position.x
+    world_y = grid_y * map.info.resolution + map.info.origin.position.y
+    
+    return (world_x, world_y)
