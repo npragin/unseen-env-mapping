@@ -25,6 +25,8 @@ import heapq
 # Using imageio to read in the image
 import imageio
 
+from helpers import world_to_map, map_to_world
+
 
 # -------------- Showing start and end and path ---------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
