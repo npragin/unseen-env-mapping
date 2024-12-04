@@ -76,7 +76,8 @@ class RobotController:
 
 		try:
 			point = self.transform_listener.transformPoint('map', point)
-		except:
+		except Exception as e:
+			rospy.logerr(e)
 			point = None
 
 		self.map_update(point, map, self._map_data)
@@ -148,6 +149,7 @@ class RobotController:
 	def send_points(self):
 		rate = rospy.Rate(10)
 		while True:
+			rospy.logerr(f"Want to send point but waypoints is {self._waypoints}")
 			while self._waypoints and len(self._waypoints) > 0:
 				rospy.loginfo(f'Sending target: ({self._waypoints[0].point.x:.2f}, {self._waypoints[0].point.y:.2f})')
 
@@ -181,7 +183,7 @@ if __name__ == '__main__':
 
 	# This creates the controller then sends some starting way points to get the robot moving
 	controller = RobotController()
-	controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
+	# controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
 	controller.send_points()
 
 	rospy.spin()
