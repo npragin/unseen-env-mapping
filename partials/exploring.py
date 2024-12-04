@@ -164,14 +164,17 @@ def find_best_point(im, possible_points, robot_loc):
 
     return closest_point
 
-def new_find_best_point(im, robot_loc):
+def new_find_best_point(map, map_data, robot_loc):
     #TODO: Fix early termination so we can find optimal path
     #TODO: Make sure paths aren't too close
+    #NOTE: If something is wrong check: 1. Whether you should multiply loc[0] or loc[1] 2. If int(round()) is messing anything up, especially di / map_width
+    map_width = map_data.width
     priority_queue = []
-    heapq.heappush(priority_queue, (0, robot_loc))
+    robot_map_loc = world_to_map(robot_loc[0], robot_loc[1], map_data)
+    heapq.heappush(priority_queue, (0, robot_map_loc)) # use helper and store index
     visited = {}
     parents = {}
-    parents[robot_loc] = None
+    parents[robot_map_loc] = None
     nearest = None
     nearest_distance = np.inf
 
@@ -183,22 +186,22 @@ def new_find_best_point(im, robot_loc):
 
         visited[curr_node] = curr_node_distance
 
-        for di in [-1, 0, 1]:
+        for di in [-map_width, 0, map_width]:
             for dj in [-1, 0, 1]:
                 if di == 0 and dj == 0:
                     continue
 
-                neighbor = (curr_node[0] + di, curr_node[1] + dj)
-                neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
+                neighbor = curr_node + di + dj # Just add di and dj to curr_node which is now an int
+                neighbor_distance = curr_node_distance + np.linalg.norm((di / map_width, dj))
 
-                if is_wall(im, neighbor):
+                if map[neighbor] > 0.5 or neighbor >= map_width * map_data.height: # Can replace this with just map[neighbor] > 0.5
                     continue
                 
                 if neighbor not in visited:
                     parents[neighbor] = curr_node
                     heapq.heappush(priority_queue, (neighbor_distance, neighbor))
 
-                if im[neighbor[1]][neighbor[0]] == 128 and neighbor_distance < nearest_distance:
+                if map[neighbor] == -1 and neighbor_distance < nearest_distance: # Can just use neighor which is now an int
                     nearest = neighbor
                     nearest_distance = neighbor_distance
                     break
@@ -208,12 +211,15 @@ def new_find_best_point(im, robot_loc):
 
     path = []
     current = nearest
+    count = 0
     while current:
-        path.append(current)
+        if count % 10 == 0:
+            path.append(map_to_world(current, map_data))
         current = parents[current]
+        
     path.reverse()
 
-    return path
+    return [path[-1]]
 
 def calculate_distance(point1, point2):
     """Calculate Euclidean distance between two points."""
