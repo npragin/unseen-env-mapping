@@ -21,6 +21,7 @@ import numpy as np
 import path_planning as path_planning
 # Our priority queue
 import heapq
+import math
 
 from helpers import world_to_map, map_to_world
 
@@ -163,8 +164,22 @@ def find_best_point(im, possible_points, robot_loc):
 
     return closest_point
 
-def is_wall(map, map_width, point):
-    return map[int(round(point[0])) + map_width * int(round(point[1]))] > 0.5
+def is_near_wall(map, map_data, map_index):
+    ROBOT_WIDTH_HALVED_IN_CELLS = math.ceil(0.38 / 2 / map_data.resolution)
+    ROBOT_HEIGHT_HALVED_IN_CELLS = math.ceil(0.44 / 2 / map_data.resolution)
+
+    point = (map_index % map_data.width, map_index // map_data.width)
+
+    new_map = np.array(map).reshape(map_data.height, map_data.width)
+
+    x_min = max(0, point[0] - ROBOT_WIDTH_HALVED_IN_CELLS)
+    x_max = min(map_data.width, point[0] + ROBOT_WIDTH_HALVED_IN_CELLS + 1)
+    y_min = max(0, point[1] - ROBOT_HEIGHT_HALVED_IN_CELLS)
+    y_max = min(map_data.height, point[1] + ROBOT_HEIGHT_HALVED_IN_CELLS + 1)
+
+    area_near_robot = new_map[x_min:x_max, y_min:y_max]
+
+    return not np.all(area_near_robot < 50)
 
 def new_find_best_point(map, map_data, robot_loc):
     #TODO: Fix early termination so we can find optimal path
@@ -173,7 +188,7 @@ def new_find_best_point(map, map_data, robot_loc):
     map_width = map_data.width
     priority_queue = []
     robot_map_loc = world_to_map(robot_loc[0], robot_loc[1], map_data)
-    heapq.heappush(priority_queue, (0, robot_map_loc)) # use helper and store index
+    heapq.heappush(priority_queue, (0, robot_map_loc))
     visited = {}
     parents = {}
     parents[robot_map_loc] = None
@@ -193,17 +208,17 @@ def new_find_best_point(map, map_data, robot_loc):
                 if di == 0 and dj == 0:
                     continue
 
-                neighbor = curr_node + di + dj # Just add di and dj to curr_node which is now an int
+                neighbor = curr_node + di + dj
                 neighbor_distance = curr_node_distance + np.linalg.norm((di / map_width, dj))
 
-                if map[neighbor] >= 50 or neighbor >= map_width * map_data.height: # Can replace this with just map[neighbor] > 0.5
+                if map[neighbor] >= 50 or is_near_wall(map, map_data, neighbor) or neighbor >= map_width * map_data.height:
                     continue
                 
                 if neighbor not in visited:
                     parents[neighbor] = curr_node
                     heapq.heappush(priority_queue, (neighbor_distance, neighbor))
 
-                if map[neighbor] == -1 and neighbor_distance < nearest_distance: # Can just use neighor which is now an int
+                if map[neighbor] == -1 and neighbor_distance < nearest_distance:
                     nearest = neighbor
                     nearest_distance = neighbor_distance
                     break
