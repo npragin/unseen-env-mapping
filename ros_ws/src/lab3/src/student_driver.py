@@ -31,35 +31,42 @@ class StudentDriver(Driver):
 		return False
 
 	def get_twist(self, target, lidar):
-		'''
-		This function is called whenever there a current target is set and there is a lidar data
-		available.  This is where you should put your code for moving the robot.  The target point
-		is in the robot's coordinate frame.  The x-axis is positive-forwards, and the y-axis is
-		positive to the left.
-
-		The example sets constant velocities, which is clearly the wrong thing to do.  Replace this
-		code with something that moves the robot more intelligently.
-
-		Parameters:
-			target:		The current target point, in the coordinate frame of the robot (base_link) as
-						an (x, y) tuple.
-			lidar:		A LaserScan containing the new lidar data.
-
-		Returns:
-			A Twist message, containing the commanded robot velocities.
-		'''
-		angle = atan2(target[1], target[0])
-		distance = sqrt(target[0] ** 2 + target[1] **2)
-		rospy.loginfo(f'Distance: {distance:.2f}, angle: {angle:.2f}')
-
-		# This builds a Twist message with all elements set to zero.
 		command = Driver.zero_twist()
 
-		# Forwards velocity goes here, in meters per second.
-		command.linear.x = 0.1
+		# TODO:
+		#  Step 1) Calculate the angle the robot has to turn to in order to point at the target
+		#  Step 2) Set your speed based on how far away you are from the target, as before
+		#  Step 3) Add code that veers left (or right) to avoid an obstacle in front of it
+		# This sets the move forward speed (as before)
 
-		# Rotational velocity goes here, in radians per second.  Positive is counter-clockwise.
-		command.angular.z = 0.1
+		target_angle = atan2(target[1], target[0])
+		print(f"target: {target[0]}, {target[1]}")
+
+		angle_min = lidar.angle_min
+		angle_max = lidar.angle_max
+		num_readings = len(lidar.ranges)
+		thetas = np.linspace(angle_min, angle_max, num_readings)
+		side_distances = np.abs(np.sin(thetas) * lidar.ranges)
+		ranges_in_front = np.where(side_distances <= 0.19, lidar.ranges, np.inf)
+		min_range = np.min(ranges_in_front)
+
+		end_point_ys = np.sin(thetas) * lidar.ranges
+		end_point_xs = np.cos(thetas) * lidar.ranges
+		end_point_distance_ys = target[1] - end_point_ys
+		end_point_distance_xs = target[0] - end_point_xs
+		end_point_distances = np.sqrt(np.square(end_point_distance_ys) + np.square(end_point_distance_xs))
+
+		print(f"num_readings: {num_readings}")
+
+		distance_weight = 1000
+		weighted_ranges = lidar.ranges * (distance_weight * (1 / end_point_distances))
+
+		if np.sum(weighted_ranges[0:90]) > np.sum(weighted_ranges[90:180]):
+			command.angular.z = -6.28
+		else:
+			command.angular.z = 6.28
+
+		command.linear.x = np.tanh(min_range - 1)
 
 		return command
 

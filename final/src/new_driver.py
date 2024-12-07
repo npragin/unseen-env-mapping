@@ -131,8 +131,9 @@ class Driver:
 				rospy.logerr(f"Error in lidar_callback {e} \n {traceback.format_exc()}")
 				return
 		else:
+			rospy.logerr("NO TARGET POINT")
 			command = Driver.zero_twist()
-
+		rospy.logerr(command)
 		self._cmd_pub.publish(command)
 
 	def close_enough_to_waypoint(self, distance, target, lidar):

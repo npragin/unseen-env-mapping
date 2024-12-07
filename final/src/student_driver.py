@@ -20,7 +20,7 @@ class StudentDriver(Driver):
 		super().__init__('odom')
 		# Set the threshold to a reasonable number
 		self.robot_width = 0.38
-		self._threshold = self.robot_width / 2 # Robot's width NOTE: This needs to be tuned, it's random
+		self._threshold = self.robot_width * 2 # Robot's width NOTE: This needs to be tuned, it's random
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		'''

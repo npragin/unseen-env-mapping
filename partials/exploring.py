@@ -25,6 +25,8 @@ import heapq
 # Using imageio to read in the image
 import imageio
 
+from helpers import world_to_map, map_to_world
+
 
 # -------------- Showing start and end and path ---------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
@@ -167,7 +169,6 @@ def find_best_point(im, possible_points, robot_loc):
 def new_find_best_point(map, map_data, robot_loc):
     #TODO: Fix early termination so we can find optimal path
     #TODO: Make sure paths aren't too close
-    #NOTE: If something is wrong check: 1. Whether you should multiply loc[0] or loc[1] 2. If int(round()) is messing anything up, especially di / map_width
     map_width = map_data.width
     priority_queue = []
     robot_map_loc = world_to_map(robot_loc[0], robot_loc[1], map_data)
@@ -213,8 +214,7 @@ def new_find_best_point(map, map_data, robot_loc):
     current = nearest
     count = 0
     while current:
-        if count % 10 == 0:
-            path.append(map_to_world(current, map_data))
+        path.append(map_to_world(current, map_data))
         current = parents[current]
         
     path.reverse()
