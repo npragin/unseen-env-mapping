@@ -17,11 +17,13 @@ import tf
 
 from lab2.msg import NavTargetAction, NavTargetResult, NavTargetFeedback
 
-
 class Driver:
 	def __init__(self, position_source, threshold=0.1):
 		self._target_point = None
 		self._threshold = threshold
+
+		self._rotate = True
+		self._rotate_count = 0
 
 		self.transform_listener = tf.TransformListener()
 
@@ -45,6 +47,17 @@ class Driver:
 		t.angular.z = 0.0
 
 		return t
+	
+	def rotate(self): #NOTE CAN WE MAKE THIS EXACTLY A 360?
+		command = Driver.zero_twist()
+		if self._rotate_count < 30:
+			command.angular.z = 6.28
+			self._rotate_count += 1
+		else:
+			command.linear.x = 0.3
+			self._rotate = False
+			self._rotate_count = 0
+		return command
 
 	# Respond to the action request.
 	def _action_callback(self, goal):
@@ -80,6 +93,7 @@ class Driver:
 				self._target_point = None
 				result.success.data = False
 				self._action_server.set_succeeded(result)
+				return #NOTE ADDED THIS
 
 			self.target_pub.publish(marker)
 			rate.sleep()
@@ -88,10 +102,14 @@ class Driver:
 		self._action_server.set_succeeded(result)
 
 	def _lidar_callback(self, lidar):
-		if self._target_point:
-			self._target_point.header.stamp = rospy.Time.now()
+		if self._rotate:
+			command = self.rotate()
+		elif self._target_point:
+			#NOTE: THIS DIDN'T USED TO HAVE DURATION MODIFICATION
+			self._target_point.header.stamp = rospy.Time.now() - rospy.Duration(0.2)
 			try:
 				target = self.transform_listener.transformPoint('base_link', self._target_point)
+
 				x = target.point.x
 				y = target.point.y
 				distance = sqrt(x ** 2 + y ** 2)
@@ -104,10 +122,13 @@ class Driver:
 				#  close_enough_to_waypoint to return True for that case
 				if self.close_enough_to_waypoint(distance, (target.point.x, target.point.y), lidar):
 					self._target_point = None
+					self._rotate = True
 					command = Driver.zero_twist()
 				else:
 					command = self.get_twist((target.point.x, target.point.y), lidar)
-			except:
+			except Exception as e:
+				import traceback
+				rospy.logerr(f"Error in lidar_callback {e} \n {traceback.format_exc()}")
 				return
 		else:
 			command = Driver.zero_twist()
