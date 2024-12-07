@@ -50,7 +50,7 @@ class Driver:
 	
 	def rotate(self): #NOTE CAN WE MAKE THIS EXACTLY A 360?
 		command = Driver.zero_twist()
-		if self._rotate_count < 30:
+		if self._rotate_count < 60:
 			command.angular.z = 6.28
 			self._rotate_count += 1
 		else:

@@ -4,12 +4,13 @@
 import sys
 import rospy
 import signal
+import numpy as np
 
 from controller import RobotController
-from exploring import new_find_best_point
-from helpers import world_to_map
-
-import numpy as np
+#Import path_planning and exploring code
+from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors, convert_image
+from exploring import find_all_possible_goals, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
+from helpers import world_to_map, map_to_world
 
 
 class StudentController(RobotController):
@@ -20,10 +21,6 @@ class StudentController(RobotController):
 	'''
 	def __init__(self):
 		super().__init__()
-		self.timer = None
-		self.map = None
-		self.map_data = None
-		self.robot_position = None
 
 	def distance_update(self, distance):
 		'''
@@ -36,11 +33,8 @@ class StudentController(RobotController):
 		Parameters:
 			distance:	The distance to the current goal.
 		'''
-		rospy.loginfo(f'Distance: {distance}')
-
-		if self.timer is not None:
-			rospy.logerr("shutting down timer")
-			self.timer.shutdown()
+		
+		#rospy.loginfo(f'Distance: {distance}')
 
 	def map_update(self, point, map, map_data):
 		'''
@@ -55,25 +49,46 @@ class StudentController(RobotController):
 			map_data:	A MapMetaData containing the current map meta data.
 		'''
 		rospy.loginfo('Got a map update.')
-		self.map = map
-		self.map_data = map_data
 
 		# It's possible that the position passed to this function is None.  This try-except block will deal
 		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
 		# We could also explicitly check to see if the point is None.
 		try:
 			# The (x, y) position of the robot can be retrieved like this.
-			self.robot_position = (point.point.x, point.point.y)
+			robot_position_world = (point.point.x, point.point.y)
 
-			rospy.loginfo(f'Robot is at {self.robot_position} {point.header.frame_id}')
 			
-			path = new_find_best_point(self.map.data, self.map_data, self.robot_position)
 
-			self.set_waypoints(path)
+			robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
+			rospy.loginfo(f'Robot is at {robot_position} {point.header.frame_id}')
+			im = np.array(map.data).reshape(map.info.height, map.info.width)
+			im_thresh = convert_image(im, wall_threshold=0.5, free_threshold=0.5)
+			unique_values, counts = np.unique(im_thresh, return_counts=True)
+			rospy.loginfo(f"Thresholded map values: {dict(zip(unique_values, counts))}")
+
+			points = find_all_possible_goals(im_thresh)
+			rospy.loginfo(points)
+			best_point = find_furthest_point(points, robot_position)
+			rospy.loginfo(f'Robot is at {robot_position} {point.header.frame_id}')
+			rospy.loginfo("GOT BEST")
+			rospy.loginfo(best_point)
+			path = dijkstra(im_thresh, robot_position, best_point, map_data)
+			rospy.loginfo("GOT PATH")
+			waypoints = find_waypoints(im_thresh, path)
+			rospy.loginfo(f'List of waypoints: {waypoints}')
+			self.set_waypoints(waypoints)
 		except Exception as e:
 			import traceback
-			rospy.logerr(f"Error in map_update {e} \n {traceback.format_exc()}")
+			rospy.logerr(f"Error in map_update{e} \n {traceback.format_exc()}")
+			
 			rospy.loginfo('No odometry information')
+
+	def get_robot_starting_loc(self):
+		while not rospy.is_shutdown():
+			if self._odom:
+				position = self._odom.pose.pose.position
+				return (position.x, position.y)
+			rospy.sleep(0.1)
 
 
 if __name__ == '__main__':
@@ -82,11 +97,16 @@ if __name__ == '__main__':
 
 	# Start the controller.
 	controller = StudentController()
-
+	
 	# This will move the robot to a set of fixed waypoints.  You should not do this, since you don't know
 	# if you can get to all of these points without building a map first.  This is just to demonstrate how
 	# to call the function, and make the robot move as an example.
-	# controller.set_waypoints([(-4,-3), (-4,0), (0,0)])
+	#robot_start_loc = controller.get_robot_starting_loc()
+	#rospy.loginfo(f"STARTING LOC: {robot_start_loc}")
+	#im, im_thresh = open_image("/home/smartw/ros_ws/src/stage_osu/config/simple_rooms.png")
+	#waypoints = generate_waypoints(im, im_thresh, robot_start_loc)
+
+	#controller.set_waypoints(((-4,-3),(-4,0),(5,0)))
 
 	# Once you call this function, control is given over to the controller, and the robot will start to
 	# move.  This function will never return, so any code below it in the file will not be executed.

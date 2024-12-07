@@ -7,7 +7,6 @@ import rospy
 from new_driver import Driver
 
 from math import atan2, sqrt
-
 import numpy as np
 
 
@@ -19,8 +18,7 @@ class StudentDriver(Driver):
 	def __init__(self, threshold=0.1):
 		super().__init__('odom')
 		# Set the threshold to a reasonable number
-		self.robot_width = 0.38
-		self._threshold = self.robot_width * 2 # Robot's width NOTE: This needs to be tuned, it's random
+		self._threshold = threshold
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		'''
@@ -32,7 +30,7 @@ class StudentDriver(Driver):
 		if distance < self._threshold:
 			return True
 		return False
-	
+
 	def get_twist(self, target, lidar):
 		'''
 		This function is called whenever there a current target is set and there is a lidar data
@@ -51,17 +49,13 @@ class StudentDriver(Driver):
 		Returns:
 			A Twist message, containing the commanded robot velocities.
 		'''
-		angle = atan2(target[1], target[0])
-		distance = sqrt(target[0] ** 2 + target[1] **2)
-		rospy.loginfo(f'Distance: {distance:.2f}, angle: {angle:.2f}')
-
 		w = 0.38
 		command = Driver.zero_twist()
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 
 		# Get the indexes of scans in front of the robot where the obstacle is 2 meters away or closer
-		in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < 1))[0]
+		in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < 2))[0]
 
 		# If nothing is in front of us within 2 meters
 		if len(in_front_idx) == 0:
@@ -78,11 +72,11 @@ class StudentDriver(Driver):
 			right = 0
 
 			# Sum space to the left and right of the robot
-			for r, theta in zip(ranges, thetas):
+			for range, theta in zip(ranges, thetas):
 				if theta < 0:
-					right += r
+					right += range
 				else:
-					left += r
+					left += range
 			
 			# Turn in the direction with more space
 			if right > left:
@@ -91,9 +85,7 @@ class StudentDriver(Driver):
 				command.angular.z = 0.2
 
 			# Don't move forward if there is something within 1 meter, move slowly if not
-			# NOTE: THIS WAS CHANGED, BEWARE; ALSO USED TO BE * 0.1
-			command.linear.x = 0 if np.min(ranges[in_front_idx]) < 1 else np.min(ranges[in_front_idx]) #* 0.1
-			# command.linear.x = 0.2
+			command.linear.x = 0 if np.min(ranges[in_front_idx]) < 1 else np.min(ranges[in_front_idx]) * 0.1
 
 		return command
 

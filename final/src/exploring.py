@@ -16,14 +16,16 @@
 
 # The ever-present numpy
 import numpy as np
+from scipy.ndimage import convolve
 
 # Your path planning code
 import path_planning as path_planning
 # Our priority queue
 import heapq
-import math
 
-from helpers import world_to_map, map_to_world
+# Using imageio to read in the image
+import imageio
+import rospy
 
 
 # -------------- Showing start and end and path ---------------
@@ -110,6 +112,7 @@ def is_reachable(im, pix):
     #  False otherwise
     # You can use four or eight connected - eight will return more points
     # YOUR CODE HERE
+    #print(pix)
     neighbors = path_planning.get_neighbors(im, pix)
     if not neighbors:
         return False
@@ -125,28 +128,46 @@ def find_all_possible_goals(im):
     @return dictionary or list or binary image of possible pixels"""
 
     # YOUR CODE HERE
-   
-        # Precompute wall and unseen masks
-    #reachable_mask = np.vectorize(lambda x, y: is_reachable(im, (x, y)))(*np.indices(im.shape))
-    #wall_mask = np.vectorize(lambda x, y: path_planning.is_wall(im, (x, y)))(*np.indices(im.shape))
-    unseen_mask = np.vectorize(lambda x, y: path_planning.is_unseen(im, (x, y)))(*np.indices(im.shape))
+    rospy.loginfo("DOING THINGS")
+    
+    # Define masks for unseen and free pixels
+    unseen_mask = (im == 128)  # Replace with the actual value for "unseen" pixels
+    free_mask = (im == 255)  # Replace with the actual value for "free" pixels
+    
+    # Define a convolution kernel to check for adjacent unseen pixels
+    kernel = np.array([[1, 1, 1],
+                       [1, 0, 1],
+                       [1, 1, 1]])
+    
+    #print(f"unseen_mask shape: {unseen_mask.shape}")
+    #print(f"kernel shape: {kernel.shape}")
+    #print(f"map shape: {map.shape}")
+    #print(f"freemask shape: {free_mask.shape}")
 
-    # Combine masks to find valid locations
-    #valid_mask = ~wall_mask & unseen_mask# & reachable_mask
-    print("Got here")
-
-    # Extract valid indices
-    valid_points = []
-    for x, y in zip(*np.where(unseen_mask)):
-        neighbors = path_planning.get_neighbors(im, (x, y))
-        if neighbors != None:
-            for x, y in neighbors:
-                valid_points.append((x, y))
-    print("finished the list")
-    return set(valid_points)
+    # Identify unseen neighbors by convolving the unseen_mask
+    unseen_neighbors = convolve(unseen_mask.astype(int), kernel, mode="constant", cval=0)
+    rospy.loginfo("CONVOLVED")
+    # Find free pixels that are adjacent to unseen pixels
+    valid_points_mask = free_mask & (unseen_neighbors > 0)
+    rospy.loginfo("MADE VALID MASK")
+    # Get coordinates of valid points
+    valid_points = np.argwhere(valid_points_mask)
+    rospy.loginfo("MADE VALID POINTS")
+    # Swap axes if needed
+    valid_points_swapped = [(y, x) for (x, y) in valid_points] #np.column_stack((valid_points[:,1], valid_points[:0]))
+    rospy.loginfo("SWAPPEDEM")
+    #print(valid_points_swapped)
+    
+    # Filter points to include only reachable ones
+    reachable_points = [point for point in valid_points_swapped if is_reachable(im, point)]
+    #mask = is_reachable(im, valid_points_swapped)
+    #reachable_points = valid_points_swapped[mask]
+    rospy.loginfo("FOUND REACHABLES")
+    # Return as set of tuples (row, column format)
+    return set(map(tuple, reachable_points))
     
 
-def find_best_point(im, possible_points, robot_loc):
+def find_best_point(possible_points, robot_loc):
     """ Pick one of the unseen points to go to
     @param im - thresholded image
     @param possible_points - possible points to chose from
@@ -164,79 +185,25 @@ def find_best_point(im, possible_points, robot_loc):
 
     return closest_point
 
-def is_near_wall(map, map_data, map_index):
-    ROBOT_WIDTH_HALVED_IN_CELLS = math.ceil(0.38 / 2 / map_data.resolution)
-    ROBOT_HEIGHT_HALVED_IN_CELLS = math.ceil(0.44 / 2 / map_data.resolution)
+def find_furthest_point(possible_points, robot_loc):
+    """
+    Pick the furthest point to go to.
+    
+    @param possible_points: possible points to choose from
+    @param robot_loc: location of the robot (x, y)
+    """
+    max_distance = -float('inf')  # Start with the smallest possible value
+    furthest_point = None
+    i, j = robot_loc
 
-    point = (map_index % map_data.width, map_index // map_data.width)
+    for x, y in possible_points:
+        distance = np.sqrt((i - x)**2 + (j - y)**2)  # Calculate Euclidean distance
+        if distance > max_distance:  # Compare with max_distance
+            max_distance = distance
+            furthest_point = (x, y)
 
-    new_map = np.array(map).reshape(map_data.height, map_data.width)
+    return furthest_point
 
-    x_min = max(0, point[0] - ROBOT_WIDTH_HALVED_IN_CELLS)
-    x_max = min(map_data.width, point[0] + ROBOT_WIDTH_HALVED_IN_CELLS + 1)
-    y_min = max(0, point[1] - ROBOT_HEIGHT_HALVED_IN_CELLS)
-    y_max = min(map_data.height, point[1] + ROBOT_HEIGHT_HALVED_IN_CELLS + 1)
-
-    area_near_robot = new_map[x_min:x_max, y_min:y_max]
-
-    return not np.all(area_near_robot < 50)
-
-def new_find_best_point(map, map_data, robot_loc):
-    #TODO: Fix early termination so we can find optimal path
-    #TODO: Make sure paths aren't too close
-    #NOTE: If something is wrong check: 1. Whether you should multiply loc[0] or loc[1] 2. If int(round()) is messing anything up, especially di / map_width
-    map_width = map_data.width
-    priority_queue = []
-    robot_map_loc = world_to_map(robot_loc[0], robot_loc[1], map_data)
-    heapq.heappush(priority_queue, (0, robot_map_loc))
-    visited = {}
-    parents = {}
-    parents[robot_map_loc] = None
-    nearest = None
-    nearest_distance = np.inf
-
-    while priority_queue and nearest is None:
-        curr_node_distance, curr_node = heapq.heappop(priority_queue)
-
-        if curr_node in visited:
-            continue
-
-        visited[curr_node] = curr_node_distance
-
-        for di in [-map_width, 0, map_width]:
-            for dj in [-1, 0, 1]:
-                if di == 0 and dj == 0:
-                    continue
-
-                neighbor = curr_node + di + dj
-                neighbor_distance = curr_node_distance + np.linalg.norm((di / map_width, dj))
-
-                if map[neighbor] >= 50 or is_near_wall(map, map_data, neighbor) or neighbor >= map_width * map_data.height:
-                    continue
-                
-                if neighbor not in visited:
-                    parents[neighbor] = curr_node
-                    heapq.heappush(priority_queue, (neighbor_distance, neighbor))
-
-                if map[neighbor] == -1 and neighbor_distance < nearest_distance:
-                    nearest = neighbor
-                    nearest_distance = neighbor_distance
-                    break
-            
-            if nearest:
-                break
-
-    path = []
-    current = nearest
-    count = 0
-    while current:
-        if count % 10 == 0:
-            path.append(map_to_world(current, map_data))
-        current = parents[current]
-        
-    path.reverse()
-
-    return [path[-1]]
 
 def calculate_distance(point1, point2):
     """Calculate Euclidean distance between two points."""
@@ -254,7 +221,7 @@ def find_waypoints(im, path):
 
     # Again, no right answer here
     # YOUR CODE HERE
-    distance_threshold = 50
+    distance_threshold = 5
     waypoints = [path[0]]
     cumulative_distance = 0
     previous_vector = None
@@ -298,7 +265,7 @@ if __name__ == '__main__':
 
     plot_with_explore_points(im_thresh, zoom=0.1, robot_loc=robot_start_loc, explore_points=all_unseen, best_pt=best_unseen)
 
-    path = path_planning.dijkstra(im_thresh, robot_start_loc, best_unseen)
+    path = path_planning.dijkstra(im_thresh, robot_start_loc, best_unseen, 50)
     waypoints = find_waypoints(im_thresh, path)
     path_planning.plot_with_path(im, im_thresh, zoom=0.1, robot_loc=robot_start_loc, goal_loc=best_unseen, path=waypoints)
 

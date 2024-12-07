@@ -16,8 +16,10 @@ import numpy as np
 # Our priority queue
 import heapq
 
-# Custom Imports
-import math
+# Using imageio to read in the image
+import imageio
+
+
 
 # -------------- Showing start and end and path ---------------
 def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, path=None):
@@ -78,17 +80,6 @@ def is_wall(im, pix):
         return True
     return False
 
-def is_near_wall(threshold, im, pix):
-    t = int(threshold)
-
-    x_min = max(0, pix[0] - t)
-    x_max = min(im.shape[1], pix[0] + t + 1)
-    y_min = max(0, pix[1] - t)
-    y_max = min(im.shape[0], pix[1] + t + 1)
-
-    region = im[y_min:y_max, x_min:x_max]
-    return not np.all(region > 0)
-
 
 def is_unseen(im, pix):
     """ Is the pixel one we've seen?
@@ -99,10 +90,32 @@ def is_unseen(im, pix):
     return False
 
 
-def is_free(im, pix):
+#def is_free(im, pix):
     """ Is the pixel empty?
     @param im - the image
     @param pix - the pixel i,j"""
+    if im[pix[1], pix[0]] == 255:
+        return True
+    return False
+
+def is_free(im, pix):
+    """
+    Checks if the pixel is free.
+    @param im: The thresholded image
+    @param pix: The pixel coordinate as a tuple (x, y)
+    @return: True if the pixel is free (value == 255), False otherwise
+    """
+    if not isinstance(pix, tuple) or len(pix) != 2:
+        raise ValueError(f"Invalid pixel coordinate: {pix}")
+    
+    # Convert to integers
+    pix = (int(pix[0]), int(pix[1]))
+    
+    # Check bounds
+    if not (0 <= pix[1] < im.shape[0] and 0 <= pix[0] < im.shape[1]):
+        raise IndexError(f"Pixel {pix} is out of bounds for image shape {im.shape}")
+    
+    # Check if pixel is free
     if im[pix[1], pix[0]] == 255:
         return True
     return False
@@ -126,9 +139,10 @@ def convert_image(im, wall_threshold, free_threshold):
     im_avg = im_avg / np.max(im_avg)
     # threshold
     #   in our example image, black is walls, white is free
-    im_ret[im_avg < wall_threshold] = 0
-    im_ret[im_avg > free_threshold] = 255
+    im_ret[im > wall_threshold] = 0
+    im_ret[(im < free_threshold) & (im != -1)] = 255
     return im_ret
+
 
 
 # -------------- Getting 4 or 8 neighbors ---------------
@@ -155,22 +169,36 @@ def eight_connected(pix):
             ret = pix[0] + i, pix[1] + j
             yield ret
 
+def get_neighbors(im, loc):
+    i, j = loc
+    neighbors = [
+        (i-1, j),
+        (i+1, j), 
+        (i, j-1),
+        (i, j+1),
+        (i-1, j-1),
+        (i-1, j+1),
+        (i+1, j-1),
+        (i+1, j+1)
+    ]
+    return [n for n in neighbors if 0 <= n[0] < im.shape[0] and 0 <= n[1] < im.shape[1] and is_free(im, n)]
 
-def dijkstra(im, robot_loc, goal_loc, pixels_per_meter):
+
+
+def dijkstra(im, robot_loc, goal_loc, map_data):
     """ Occupancy grid image, with robot and goal loc as pixels
     @param im - the thresholded image - use is_free(i, j) to determine if in reachable node
     @param robot_loc - where the robot is (tuple, i,j)
     @param goal_loc - where to go to (tuple, i,j)
     @returns a list of tuples"""
-    ROBOT_WIDTH = 0.38
-    ROBOT_WIDTH_IN_PIXELS_HALVED = math.ceil(ROBOT_WIDTH * pixels_per_meter / 2)
+    goal_loc = (goal_loc[0], goal_loc[1])
 
     # Sanity check
-    if not is_free(im, robot_loc):
-        raise ValueError(f"Start location {robot_loc} is not in the free space of the map")
+    #if not is_free(im, robot_loc):
+    #    raise ValueError(f"Start location {robot_loc} is not in the free space of the map")
 
-    if not is_free(im, goal_loc):
-        raise ValueError(f"Goal location {goal_loc} is not in the free space of the map")
+    #if not is_free(im, goal_loc):
+    #    raise ValueError(f"Goal location {goal_loc} is not in the free space of the map")
 
     # The priority queue itself is just a list, with elements of the form (weight, (i,j))
     #    - i.e., a tuple with the first element the weight/score, the second element a tuple with the pixel location
@@ -225,7 +253,7 @@ def dijkstra(im, robot_loc, goal_loc, pixels_per_meter):
                 neighbor = (node_ij[0] + di, node_ij[1] + dj)
                 
                 # Check if neighbor in direction (di, dj) is valid and free
-                if not is_free(im, neighbor) or is_near_wall(ROBOT_WIDTH_IN_PIXELS_HALVED, im, neighbor):
+                if not is_free(im, neighbor):
                     continue
                     
                 # Calculate distance to neighbor and distance to goal and add them to existing cost
@@ -246,19 +274,18 @@ def dijkstra(im, robot_loc, goal_loc, pixels_per_meter):
                 best = dist
                 best_node = node
         if best_node:
-            return dijkstra(im, robot_loc, best_node, pixels_per_meter)
+            return dijkstra(im, robot_loc, best_node)
         else:
             raise ValueError("Could not find path")
 
     path = []
-    path.append(goal_loc)
-    # Build the path by starting at the goal node and working backwards
-    path = [goal_loc]
     current = goal_loc
     # While there's a parent
-    while visited[current][1] is not None:
+    while current is not None:
+        current_x_in_space = current[1] * map_data.resolution + map_data.origin.position.x
+        current_y_in_space = current[0] * map_data.resolution + map_data.origin.position.y
+        path.insert(0, (current_x_in_space, current_y_in_space))
         current = visited[current][1]
-        path.insert(0, current)
 
     return path
 

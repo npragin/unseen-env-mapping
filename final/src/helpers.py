@@ -9,7 +9,7 @@ def world_to_map(x, y, map_data):
     if out_of_bounds:
         return None
 
-    return grid_x + grid_y * map_data.width
+    return (grid_y, grid_x)
 
 def map_to_world(index, map_data):
     grid_x = index % map_data.width
