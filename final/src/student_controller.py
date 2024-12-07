@@ -6,6 +6,10 @@ import rospy
 import signal
 
 from controller import RobotController
+from exploring import new_find_best_point
+from helpers import world_to_map
+
+import numpy as np
 
 
 class StudentController(RobotController):
@@ -16,6 +20,10 @@ class StudentController(RobotController):
 	'''
 	def __init__(self):
 		super().__init__()
+		self.timer = None
+		self.map = None
+		self.map_data = None
+		self.robot_position = None
 
 	def distance_update(self, distance):
 		'''
@@ -29,6 +37,10 @@ class StudentController(RobotController):
 			distance:	The distance to the current goal.
 		'''
 		rospy.loginfo(f'Distance: {distance}')
+
+		if self.timer is not None:
+			rospy.logerr("shutting down timer")
+			self.timer.shutdown()
 
 	def map_update(self, point, map, map_data):
 		'''
@@ -44,16 +56,23 @@ class StudentController(RobotController):
 		'''
 		rospy.loginfo('Got a map update.')
 		self.map = map
+		self.map_data = map_data
 
 		# It's possible that the position passed to this function is None.  This try-except block will deal
 		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
 		# We could also explicitly check to see if the point is None.
 		try:
 			# The (x, y) position of the robot can be retrieved like this.
-			robot_position = (point.point.x, point.point.y)
+			self.robot_position = (point.point.x, point.point.y)
 
-			rospy.loginfo(f'Robot is at {robot_position} {point.header.frame_id}')
-		except:
+			rospy.loginfo(f'Robot is at {self.robot_position} {point.header.frame_id}')
+			
+			path = new_find_best_point(self.map.data, self.map_data, self.robot_position)
+
+			self.set_waypoints(path)
+		except Exception as e:
+			import traceback
+			rospy.logerr(f"Error in map_update {e} \n {traceback.format_exc()}")
 			rospy.loginfo('No odometry information')
 
 
@@ -67,7 +86,7 @@ if __name__ == '__main__':
 	# This will move the robot to a set of fixed waypoints.  You should not do this, since you don't know
 	# if you can get to all of these points without building a map first.  This is just to demonstrate how
 	# to call the function, and make the robot move as an example.
-	controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
+	# controller.set_waypoints([(-4,-3), (-4,0), (0,0)])
 
 	# Once you call this function, control is given over to the controller, and the robot will start to
 	# move.  This function will never return, so any code below it in the file will not be executed.

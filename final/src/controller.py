@@ -16,6 +16,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 import actionlib
 from lab2.msg import NavTargetAction, NavTargetActionGoal
+from exploring import new_find_best_point
 
 
 class RobotController:
@@ -50,6 +51,11 @@ class RobotController:
 		# Set up a signal handler to deal with ctrl-c so that we close down gracefully.
 		signal.signal(signal.SIGINT, self._shutdown)
 
+		self.timer = None
+		self.map = None
+		self.map_data = None
+		self.robot_position = None
+
 	@classmethod
 	def _generate_point(cls, p):
 		'''This function takes an (x, y) tuple, and returns a PointStamped in the map frame.'''
@@ -76,7 +82,8 @@ class RobotController:
 
 		try:
 			point = self.transform_listener.transformPoint('map', point)
-		except:
+		except Exception as e:
+			rospy.logerr(e)
 			point = None
 
 		self.map_update(point, map, self._map_data)
@@ -148,6 +155,12 @@ class RobotController:
 	def send_points(self):
 		rate = rospy.Rate(10)
 		while True:
+			if self._waypoints is None:
+				rospy.logerr(f"Want to send point but waypoints is {self._waypoints}")
+				if self.map and self.map_data and self.robot_position:
+					self.set_waypoints(new_find_best_point(self.map.data, self.map_data, self.robot_position))
+				else:
+					rospy.logerr(f"Tried to send points but one of these was None:\nmap: {self.map is None}\nmap_data: {self.map_data is None}\nrobot_position: {self.robot_position is None}")
 			while self._waypoints and len(self._waypoints) > 0:
 				rospy.loginfo(f'Sending target: ({self._waypoints[0].point.x:.2f}, {self._waypoints[0].point.y:.2f})')
 
@@ -181,7 +194,7 @@ if __name__ == '__main__':
 
 	# This creates the controller then sends some starting way points to get the robot moving
 	controller = RobotController()
-	controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
+	# controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
 	controller.send_points()
 
 	rospy.spin()
