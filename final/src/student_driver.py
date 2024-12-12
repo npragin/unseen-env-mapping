@@ -6,7 +6,7 @@ import rospy
 
 from new_driver import Driver
 
-from math import atan2, sqrt
+from math import atan2, sqrt, ceil, tanh, pi
 import numpy as np
 
 
@@ -18,7 +18,8 @@ class StudentDriver(Driver):
 	def __init__(self, threshold=0.1):
 		super().__init__('odom')
 		# Set the threshold to a reasonable number
-		self._threshold = threshold
+		self._robot_width = 0.38
+		self._threshold = self._robot_width * 1.5
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		'''
@@ -49,43 +50,54 @@ class StudentDriver(Driver):
 		Returns:
 			A Twist message, containing the commanded robot velocities.
 		'''
-		w = 0.38
-		command = Driver.zero_twist()
+		w_epsilon = 0.1
+		w = 0.38 # Robot's width
+		l = 0.44
+		command = Driver.zero_twist() 
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 
-		# Get the indexes of scans in front of the robot where the obstacle is 2 meters away or closer
-		in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < 2))[0]
+		obstacle_threshold = 0.3 + (l / 2)
+		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < obstacle_threshold))[0]
 
-		# If nothing is in front of us within 2 meters
-		if len(in_front_idx) == 0:
-			#  Step 1) Calculate the angle the robot has to turn to in order to point at the target
-			target_angle = np.arctan2(target[1], target[0])
+		if (len(obstacles_in_front_idx) == 0):
+			target_angle = atan2(target[1], target[0])
 			target_distance = np.linalg.norm(np.array(target))
 
-			#  Step 2) Set your speed based on how far away you are from the target, as before
-			command.linear.x = target_distance / 2
+			if abs(target_angle) > pi / 2:
+				rospy.loginfo('Rotating to face goal')
+				self.rotate_180()
+
+			command.linear.x = target_distance
 			command.angular.z = target_angle * 0.75
+			return command
 		else:
-			#  Step 3) Add code that veers left (or right) to avoid an obstacle in front of it
-			left = 0
-			right = 0
+			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - l / 2
 
-			# Sum space to the left and right of the robot
-			for range, theta in zip(ranges, thetas):
-				if theta < 0:
-					right += range
-				else:
-					left += range
-			
-			# Turn in the direction with more space
-			if right > left:
-				command.angular.z = -0.2
+			angle_of_concern = 2 * abs(np.arctan(w / 2 / obstacle_threshold))
+			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
+			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
+
+			cones = np.lib.stride_tricks.sliding_window_view(ranges, num_scans_of_concern)
+			safe_cones_idx = np.nonzero(np.all(cones > obstacle_threshold, axis=1))[0]
+
+			if len(safe_cones_idx) == 0:
+				rospy.loginfo('Rotating to face free space')
+				self.rotate_180()
+				return command
+
+			nearest_safe_cone_idx = safe_cones_idx[np.argmin(np.abs(safe_cones_idx - (len(cones) / 2)))]
+
+			half_window = num_scans_of_concern / 2
+			if half_window % 1 == 0:
+				lower_idx = nearest_safe_cone_idx + int(half_window)
+				safe_direction = (thetas[lower_idx] + thetas[lower_idx + 1]) / 2
 			else:
-				command.angular.z = 0.2
+				safe_direction = thetas[nearest_safe_cone_idx + int(half_window)]
 
-			# Don't move forward if there is something within 1 meter, move slowly if not
-			command.linear.x = 0 if np.min(ranges[in_front_idx]) < 1 else np.min(ranges[in_front_idx]) * 0.1
+			# rospy.loginfo(f"SAFE DIRECTION IS: {safe_direction} OBSTACLE DISTANCE: {obstacle_distance}")
+			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) + 1 if safe_direction > 0 else -1
+			command.linear.x = 0.5 * tanh(1 * (1 / obstacle_distance)) if obstacle_distance > 0.25 else 0
 
 		return command
 

@@ -15,10 +15,11 @@ import numpy as np
 
 # Our priority queue
 import heapq
-
-# Using imageio to read in the image
-import imageio
-
+import rospy
+from scipy.ndimage import convolve
+import matplotlib.pyplot as plt
+import os
+from exploring import find_highest_concentration_point
 
 
 # -------------- Showing start and end and path ---------------
@@ -191,6 +192,20 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
     @param robot_loc - where the robot is (tuple, i,j)
     @param goal_loc - where to go to (tuple, i,j)
     @returns a list of tuples"""
+
+    rospy.loginfo("Starting dijkstras")
+    
+    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.75)
+
+    kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    
+    unseen_or_blocked_areas = (im == 0)
+    convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
+    free_areas = convolve_result == 0
+
+    # free_areas = convolve(im, kernel, mode='constant', cval=0)
+    # free_areas = free_areas > 0
+
     goal_loc = (goal_loc[0], goal_loc[1])
 
     # Sanity check
@@ -253,9 +268,17 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
                 neighbor = (node_ij[0] + di, node_ij[1] + dj)
                 
                 # Check if neighbor in direction (di, dj) is valid and free
-                if not is_free(im, neighbor):
+                if not is_free(im, (neighbor)):
+                    continue
+
+                if not free_areas[neighbor[1], neighbor[0]]:
+                    if neighbor == goal_loc:
+                        rospy.logerr("Skipping goal_loc")
                     continue
                     
+                # if free_areas[im[1], im[0]] == 0:
+                #     continue
+
                 # Calculate distance to neighbor and distance to goal and add them to existing cost
                 distance = np.linalg.norm((di, dj)) + visited_distance
                 heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
@@ -267,28 +290,26 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
 
     # Now check that we actually found the goal node, if not make a path as close as possible
     if not goal_loc in visited:
-        best = 0
-        best_node = None
-        for node, (dist, _, _) in visited.items():
-            if dist > best:
-                best = dist
-                best_node = node
-        if best_node:
-            return dijkstra(im, robot_loc, best_node)
-        else:
-            raise ValueError("Could not find path")
-
+        old_goal_loc = goal_loc
+        visited_points = np.array(list(visited.keys()))
+        distances = np.linalg.norm(visited_points - goal_loc)
+        goal_loc = visited_points[np.argmin(distances)]
+        ## rospy.loginfo(f"Recursing dijkstra")
+        ## return dijkstra(im, robot_loc, ((goal_loc[0] + robot_loc[0]) // 2, (goal_loc[1] + robot_loc[1]) // 2), map_data)
+        # goal_loc = tuple(find_highest_concentration_point(visited.keys(), im, map_data, radius=0.25))
+        rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead")
+        rospy.logerr(f"Length of visited is {len(visited)}")
+        
     path = []
-    current = goal_loc
+    current = tuple(goal_loc)
     # While there's a parent
     while current is not None:
-        current_x_in_space = current[1] * map_data.resolution + map_data.origin.position.x
-        current_y_in_space = current[0] * map_data.resolution + map_data.origin.position.y
+        current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
+        current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
         path.insert(0, (current_x_in_space, current_y_in_space))
         current = visited[current][1]
 
     return path
-
 
 def open_image(im_name):
     """ A helper function to open up the image and the yaml file and threshold

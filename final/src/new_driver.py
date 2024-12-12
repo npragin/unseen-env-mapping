@@ -22,8 +22,7 @@ class Driver:
 		self._target_point = None
 		self._threshold = threshold
 
-		self._rotate = True
-		self._rotate_count = 0
+		self._rotate_count = 39
 
 		self.transform_listener = tf.TransformListener()
 
@@ -50,14 +49,18 @@ class Driver:
 	
 	def rotate(self): #NOTE CAN WE MAKE THIS EXACTLY A 360?
 		command = Driver.zero_twist()
-		if self._rotate_count < 60:
+
+		if self._rotate_count > 0:
 			command.angular.z = 6.28
-			self._rotate_count += 1
-		else:
-			command.linear.x = 0.3
-			self._rotate = False
-			self._rotate_count = 0
+			self._rotate_count -= 1
+
 		return command
+	
+	def rotate_360(self):
+		self._rotate_count = 39
+
+	def rotate_180(self):
+		self._rotate_count = 18
 
 	# Respond to the action request.
 	def _action_callback(self, goal):
@@ -102,7 +105,7 @@ class Driver:
 		self._action_server.set_succeeded(result)
 
 	def _lidar_callback(self, lidar):
-		if self._rotate:
+		if self._rotate_count > 0:
 			command = self.rotate()
 		elif self._target_point:
 			#NOTE: THIS DIDN'T USED TO HAVE DURATION MODIFICATION
@@ -122,7 +125,7 @@ class Driver:
 				#  close_enough_to_waypoint to return True for that case
 				if self.close_enough_to_waypoint(distance, (target.point.x, target.point.y), lidar):
 					self._target_point = None
-					self._rotate = True
+					self.rotate_360()
 					command = Driver.zero_twist()
 				else:
 					command = self.get_twist((target.point.x, target.point.y), lidar)
@@ -133,7 +136,6 @@ class Driver:
 		else:
 			rospy.logerr("NO TARGET POINT")
 			command = Driver.zero_twist()
-		rospy.logerr(command)
 		self._cmd_pub.publish(command)
 
 	def close_enough_to_waypoint(self, distance, target, lidar):

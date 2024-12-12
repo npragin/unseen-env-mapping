@@ -9,7 +9,7 @@ import numpy as np
 from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors, convert_image
-from exploring import find_all_possible_goals, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
+from exploring import find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
 from helpers import world_to_map, map_to_world
 
 
@@ -21,6 +21,7 @@ class StudentController(RobotController):
 	'''
 	def __init__(self):
 		super().__init__()
+		self._robot_position = None
 
 	def distance_update(self, distance):
 		'''
@@ -54,35 +55,30 @@ class StudentController(RobotController):
 		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
 		# We could also explicitly check to see if the point is None.
 		try:
-			# The (x, y) position of the robot can be retrieved like this.
-			robot_position_world = (point.point.x, point.point.y)
+			if self._waypoints is None or len(self._waypoints) == 0:
+				# The (x, y) position of the robot can be retrieved like this.
+				robot_position_world = (point.point.x, point.point.y)
 
-			
+				self._robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
+				im = np.array(map.data).reshape(map.info.height, map.info.width)
+				im_thresh = convert_image(im, wall_threshold=0.8, free_threshold=0.2)
+				rospy.loginfo(f"finding points")
+				points = find_all_possible_goals(im_thresh, map_data)
+				rospy.loginfo(f"points is {points}")
+				# best_point = find_furthest_point(points, self._robot_position)
+				best_point = find_closest_point(points, self._robot_position, map.info)
+				# best_point = find_highest_concentration_point(points, im, map.info)
+				rospy.loginfo(f"best_point was {best_point}")
 
-			robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
-			rospy.loginfo(f'Robot is at {robot_position} {point.header.frame_id}')
-			im = np.array(map.data).reshape(map.info.height, map.info.width)
-			im_thresh = convert_image(im, wall_threshold=0.5, free_threshold=0.5)
-			unique_values, counts = np.unique(im_thresh, return_counts=True)
-			rospy.loginfo(f"Thresholded map values: {dict(zip(unique_values, counts))}")
-
-			points = find_all_possible_goals(im_thresh)
-			rospy.loginfo(points)
-			best_point = find_furthest_point(points, robot_position)
-			rospy.loginfo(f'Robot is at {robot_position} {point.header.frame_id}')
-			rospy.loginfo("GOT BEST")
-			rospy.loginfo(best_point)
-			path = dijkstra(im_thresh, robot_position, best_point, map_data)
-			rospy.loginfo("GOT PATH")
-			waypoints = find_waypoints(im_thresh, path)
-			rospy.loginfo(f'List of waypoints: {waypoints}')
-			self.set_waypoints(waypoints)
+				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
+				waypoints = find_waypoints(im_thresh, path)
+				self.set_waypoints(waypoints)
 		except Exception as e:
 			import traceback
-			rospy.logerr(f"Error in map_update{e} \n {traceback.format_exc()}")
+			rospy.logerr(f"Error in map_update: {e} \n {traceback.format_exc()}")
 			
-			rospy.loginfo('No odometry information')
-
+			rospy.loginfo('No odometry information.')
+			
 	def get_robot_starting_loc(self):
 		while not rospy.is_shutdown():
 			if self._odom:

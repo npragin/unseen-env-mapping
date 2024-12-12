@@ -24,8 +24,8 @@ import path_planning as path_planning
 import heapq
 
 # Using imageio to read in the image
-import imageio
 import rospy
+from helpers import world_to_map
 
 
 # -------------- Showing start and end and path ---------------
@@ -120,7 +120,7 @@ def is_reachable(im, pix):
         return True
 
 
-def find_all_possible_goals(im):
+def find_all_possible_goals(im, map_data):
     """ Find all of the places where you have a pixel that is unseen next to a pixel that is free
     It is probably easier to do this, THEN cull it down to some reasonable places to try
     This is because of noise in the map - there may be some isolated pixels
@@ -128,7 +128,6 @@ def find_all_possible_goals(im):
     @return dictionary or list or binary image of possible pixels"""
 
     # YOUR CODE HERE
-    rospy.loginfo("DOING THINGS")
     
     # Define masks for unseen and free pixels
     unseen_mask = (im == 128)  # Replace with the actual value for "unseen" pixels
@@ -144,25 +143,27 @@ def find_all_possible_goals(im):
     #print(f"map shape: {map.shape}")
     #print(f"freemask shape: {free_mask.shape}")
 
+    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.75)
+    robot_kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    
+    unseen_or_blocked_areas = (im == 0)
+    convolve_result = convolve(unseen_or_blocked_areas, robot_kernel, mode='constant', cval=1)
+    free_areas = convolve_result == 0
+
     # Identify unseen neighbors by convolving the unseen_mask
     unseen_neighbors = convolve(unseen_mask.astype(int), kernel, mode="constant", cval=0)
-    rospy.loginfo("CONVOLVED")
     # Find free pixels that are adjacent to unseen pixels
-    valid_points_mask = free_mask & (unseen_neighbors > 0)
-    rospy.loginfo("MADE VALID MASK")
+    valid_points_mask = free_mask & (unseen_neighbors > 0) & free_areas
     # Get coordinates of valid points
     valid_points = np.argwhere(valid_points_mask)
-    rospy.loginfo("MADE VALID POINTS")
     # Swap axes if needed
     valid_points_swapped = [(y, x) for (x, y) in valid_points] #np.column_stack((valid_points[:,1], valid_points[:0]))
-    rospy.loginfo("SWAPPEDEM")
     #print(valid_points_swapped)
     
     # Filter points to include only reachable ones
     reachable_points = [point for point in valid_points_swapped if is_reachable(im, point)]
     #mask = is_reachable(im, valid_points_swapped)
     #reachable_points = valid_points_swapped[mask]
-    rospy.loginfo("FOUND REACHABLES")
     # Return as set of tuples (row, column format)
     return set(map(tuple, reachable_points))
     
@@ -185,6 +186,18 @@ def find_best_point(possible_points, robot_loc):
 
     return closest_point
 
+def find_closest_point(possible_points, robot_loc, map_data):
+    points = np.array(list(possible_points))
+    distances = np.linalg.norm(points - robot_loc, axis=1)
+    robot_map_area = np.linalg.norm((0.22 / map_data.resolution, 0.19 / map_data.resolution))
+    idx_not_under_robot = np.where(distances >= robot_map_area * 10)[0]
+
+    best_point_idx = idx_not_under_robot[np.argmin(distances[idx_not_under_robot])]
+    best_point = points[best_point_idx]
+    rospy.logerr(f"Closest point found is: {best_point}")
+    return best_point
+
+
 def find_furthest_point(possible_points, robot_loc):
     """
     Pick the furthest point to go to.
@@ -204,6 +217,34 @@ def find_furthest_point(possible_points, robot_loc):
 
     return furthest_point
 
+def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
+    radius_pixels = 10 #int(radius / map_data.resolution)
+    
+    # Create a binary image of all target points (where im == 128)
+    target_points = np.zeros_like(im, dtype=float)
+    target_points[im == 128] = 1
+    
+    # Create circular kernel
+    y, x = np.ogrid[-radius_pixels:radius_pixels+1, -radius_pixels:radius_pixels+1]
+    kernel = x*x + y*y <= radius_pixels*radius_pixels
+    kernel = kernel.astype(float)
+    
+    # Apply convolution to count nearby points
+    concentration_map = convolve(target_points, kernel, mode='constant', cval=0.0)
+    
+    # Create a mask of possible points
+    possible_points = np.array(list(possible_points))
+    points_mask = np.zeros_like(im, dtype=bool)
+    points_mask[possible_points[:, 0].astype(int), possible_points[:, 1].astype(int)] = True
+    
+    # Mask the concentration map to only look at possible points
+    masked_concentration = np.where(points_mask, concentration_map, -1)
+    
+    # Find the point with highest concentration
+    max_idx = np.unravel_index(np.argmax(masked_concentration), masked_concentration.shape)
+    rospy.loginfo(f"max_idx type: {type(max_idx)}, {max_idx}")
+    return max_idx
+
 
 def calculate_distance(point1, point2):
     """Calculate Euclidean distance between two points."""
@@ -222,31 +263,15 @@ def find_waypoints(im, path):
     # Again, no right answer here
     # YOUR CODE HERE
     distance_threshold = 5
-    waypoints = [path[0]]
+    waypoints = []
     cumulative_distance = 0
     previous_vector = None
 
-    for i in range(1, len(path)):
-        # Calculate distance and vector
-        distance = calculate_distance(path[i - 1], path[i])
-        current_vector = calculate_vector(path[i - 1], path[i])
-
-        # Check for a change in direction
-        if previous_vector is not None and current_vector != previous_vector:
-            waypoints.append(path[i - 1])
-            cumulative_distance = 0  # Reset distance when direction changes
-
-        # Add the point if the distance threshold is exceeded
-        cumulative_distance += distance
-        if cumulative_distance >= distance_threshold:
-            waypoints.append(path[i])
-            cumulative_distance = 0  # Reset cumulative distance
-
-        # Update previous vector
-        previous_vector = current_vector
+    for i in range(10, len(path), 10):
+        waypoints.append(path[i])
 
     # Add the last point as a waypoint if it's not already included
-    if waypoints[-1] != path[-1]:
+    if len(waypoints) == 0 or waypoints[-1] != path[-1]:
         waypoints.append(path[-1])
 
     return waypoints
