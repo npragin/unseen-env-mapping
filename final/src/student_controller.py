@@ -11,7 +11,7 @@ from controller import RobotController
 from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors, convert_image
 from exploring import find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
 from helpers import world_to_map, map_to_world
-
+import time
 
 class StudentController(RobotController):
 	'''
@@ -22,6 +22,9 @@ class StudentController(RobotController):
 	def __init__(self):
 		super().__init__()
 		self._robot_position = None
+
+		self._last_distance_reading = 0
+		self._time_since_progress = time.time()
 
 	def distance_update(self, distance):
 		'''
@@ -34,8 +37,10 @@ class StudentController(RobotController):
 		Parameters:
 			distance:	The distance to the current goal.
 		'''
-		
-		#rospy.loginfo(f'Distance: {distance}')
+		if abs(self._last_distance_reading - distance) >= 0.05:
+			rospy.loginfo(f"Resetting timer because the distance to the goal has changed by {abs(self._last_distance_reading - distance)} after {time.time() - self._time_since_progress} seconds")
+			self._last_distance_reading = distance
+			self._time_since_progress = time.time()
 
 	def map_update(self, point, map, map_data):
 		'''
@@ -55,7 +60,7 @@ class StudentController(RobotController):
 		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
 		# We could also explicitly check to see if the point is None.
 		try:
-			if self._waypoints is None or len(self._waypoints) == 0:
+			if self._waypoints is None or len(self._waypoints) == 0 or time.time() - self._time_since_progress > 8:
 				# The (x, y) position of the robot can be retrieved like this.
 				robot_position_world = (point.point.x, point.point.y)
 
