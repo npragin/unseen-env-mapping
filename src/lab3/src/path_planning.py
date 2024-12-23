@@ -193,46 +193,29 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
     @returns a list of tuples"""
 
     rospy.loginfo("Starting dijkstras")
-    
-    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
 
-    kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    robot_height_in_meters = 0.44
+    robot_height_in_pixels = robot_height_in_meters / map_data.resolution
+    robot_height_in_pixels_with_buffer = int(robot_height_in_pixels * 1.9)
+
+    kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
     
     unseen_or_blocked_areas = (im == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
     free_areas = convolve_result == 0
 
-    # free_areas = convolve(im, kernel, mode='constant', cval=0)
-    # free_areas = free_areas > 0
     goal_loc = (goal_loc[0], goal_loc[1])
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
 
-    # Sanity check
-    #if not is_free(im, robot_loc):
-    #    raise ValueError(f"Start location {robot_loc} is not in the free space of the map")
-
-    #if not is_free(im, goal_loc):
-    #    raise ValueError(f"Goal location {goal_loc} is not in the free space of the map")
-
-    # The priority queue itself is just a list, with elements of the form (weight, (i,j))
-    #    - i.e., a tuple with the first element the weight/score, the second element a tuple with the pixel location
+    # Initialize data structures for Dijkstra
+    # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     priority_queue = []
-    # Push the start node onto the queue
-    #   push takes the queue itself, then a tuple with the first element the priority value and the second
-    #   being whatever data you want to keep - in this case, the robot location, which is a tuple
     heapq.heappush(priority_queue, (0, robot_loc))
-
-    # The power of dictionaries - we're going to use a dictionary to store every node we've visited, along
-    #   with the node we came from and the current distance
-    # This is easier than trying to get the distance from the heap
     visited = {}
-    # Use the (i,j) tuple to index the dictionary
-    #   Store the best distance, the parent, and if closed y/n
-    visited[robot_loc] = (0, None, False)   # For every other node this will be the current_node, distance
+    visited[robot_loc] = (0, None, False)
 
     # While the list is not empty - use a break for if the node is the end node
     while priority_queue:
-        # Get the current best node off of the list
         current_node = heapq.heappop(priority_queue)
         # Pop returns the value and the i, j
         node_score = current_node[0]
@@ -255,9 +238,6 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         #  Step 3: Set the node to closed
         visited[node_ij] = (visited_distance, visited_parent, True)
 
-        #    Now do the instructions from the slide (the actual algorithm)
-        #  Lec 8_1: Planning, at the end
-        #  https://docs.google.com/presentation/d/1pt8AcSKS2TbKpTAVV190pRHgS_M38ldtHQHIltcYH6Y/edit#slide=id.g18d0c3a1e7d_0_0
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
                 # Don't do anything for the case where we don't move

@@ -190,12 +190,16 @@ priority_queue = None
 
 def new_find_best_point(map, map_data, robot_loc):
     #TODO: When storing visited and priority_queue in the global scope, the previous distances we rank the nodes by will be stale, how can we fix this?
+
     rospy.loginfo("Starting new_find_best_point")
 
-    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
+    robot_height_in_meters = 0.44
+    robot_height_in_pixels = robot_height_in_meters / map_data.resolution
+    robot_height_in_pixels_with_buffer = int(robot_height_in_pixels * 2)
 
     # Convolution to avoid pathing too close to the wall
-    kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
+
     # TODO: Figure out if this filters out unseen areas, seems like it only filters out walls
     unseen_or_blocked_areas = (map == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
@@ -205,8 +209,9 @@ def new_find_best_point(map, map_data, robot_loc):
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
     if process_bad_nodes:
         rospy.loginfo("Processing bad nodes.")
+
     # Initialize data structures for Dijkstra
-    # Visited stores (distance from robot, parent node, is node closed)
+    # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     global visited, priority_queue
     if visited is None and priority_queue is None:
         priority_queue = []
