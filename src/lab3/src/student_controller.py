@@ -38,7 +38,7 @@ class StudentController(RobotController):
 		Parameters:
 			distance:	The distance to the current goal.
 		'''
-		if abs(self._last_distance_reading - distance) >= 0.05 and time.time() - self._time_since_progress <= self._idle_time_allowed:
+		if abs(self._last_distance_reading - distance) >= 0.2 and time.time() - self._time_since_progress <= self._idle_time_allowed:
 			rospy.loginfo(f"Resetting timer because the distance to the goal has changed by {abs(self._last_distance_reading - distance)} after {time.time() - self._time_since_progress} seconds")
 			self._last_distance_reading = distance
 			self._time_since_progress = time.time()
