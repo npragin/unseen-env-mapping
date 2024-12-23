@@ -189,8 +189,6 @@ visited = None
 priority_queue = None
 
 def new_find_best_point(map, map_data, robot_loc):
-    #TODO: When storing visited and priority_queue in the global scope, the previous distances we rank the nodes by will be stale, how can we fix this?
-
     rospy.loginfo("Starting new_find_best_point")
 
     robot_height_in_meters = 0.44
