@@ -69,6 +69,7 @@ class StudentController(RobotController):
 				self._robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
 				im = np.array(map.data).reshape(map.info.height, map.info.width)
 				im_thresh = convert_image(im, wall_threshold=0.8, free_threshold=0.2)
+
 				# rospy.loginfo(f"finding points")
 				# points = find_all_possible_goals(im_thresh, map_data)
 				# rospy.loginfo(f"points is {points}")
@@ -78,8 +79,11 @@ class StudentController(RobotController):
 				# rospy.loginfo(f"best_point was {best_point}")
 				# path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
 
+				rospy.loginfo(f"finding points")
 				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
+				rospy.loginfo(f"best_point was {best_point}")
 				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
+		
 				waypoints = find_waypoints(im_thresh, path)
 				self.set_waypoints(waypoints)
 		except Exception as e:

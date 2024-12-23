@@ -204,7 +204,8 @@ def new_find_best_point(map, map_data, robot_loc):
 
     # Allow processing points too close to the wall if robot is too close to the wall
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
-    
+    if process_bad_nodes:
+        rospy.loginfo("Processing bad nodes.")
     # Initialize data structures for Dijkstra
     # Visited stores (distance from robot, parent node, is node closed)
     global visited, priority_queue
@@ -228,9 +229,6 @@ def new_find_best_point(map, map_data, robot_loc):
                     continue
 
                 neighbor = (curr_node[0] + di, curr_node[1] + dj)
-
-                # if not is_free(map, neighbor):
-                #     continue
 
                 if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
                     continue

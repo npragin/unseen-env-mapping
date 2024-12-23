@@ -205,9 +205,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
 
     # free_areas = convolve(im, kernel, mode='constant', cval=0)
     # free_areas = free_areas > 0
-    rospy.logerr(goal_loc)
     goal_loc = (goal_loc[0], goal_loc[1])
-    rospy.logerr(goal_loc)
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
 
     # Sanity check
