@@ -39,7 +39,6 @@ class StudentController(RobotController):
 			distance:	The distance to the current goal.
 		'''
 		if abs(self._last_distance_reading - distance) >= 0.2 and time.time() - self._time_since_progress <= self._idle_time_allowed:
-			rospy.loginfo(f"Resetting timer because the distance to the goal has changed by {abs(self._last_distance_reading - distance)} after {time.time() - self._time_since_progress} seconds")
 			self._last_distance_reading = distance
 			self._time_since_progress = time.time()
 
@@ -79,9 +78,7 @@ class StudentController(RobotController):
 				# rospy.loginfo(f"best_point was {best_point}")
 				# path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
 
-				rospy.loginfo(f"finding points")
 				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
-				rospy.loginfo(f"best_point was {best_point}")
 				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
 		
 				waypoints = find_waypoints(im_thresh, path)
