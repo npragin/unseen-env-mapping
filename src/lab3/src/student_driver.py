@@ -28,8 +28,7 @@ class StudentDriver(Driver):
 		has a smarter stopping criteria then just checking the distance. See get_twist for the parameters; distance
 		is the current distance to the target.
 		'''
-		# Default behavior.
-		if distance < self._threshold:
+		if abs(target[0]) <= self._robot_height and abs(target[1]) <= self._robot_width:
 			return True
 		return False
 
