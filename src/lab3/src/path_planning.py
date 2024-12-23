@@ -266,21 +266,18 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
                     visited[neighbor] = (distance, node_ij, False)
                     heapq.heappush(priority_queue, (distance + heuristic, neighbor))
 
-    # Now check that we actually found the goal node, if not make a path as close as possible
+    # If we couldn't path to the goal, path to the closest point to the goal we can
     if not goal_loc in visited:
         old_goal_loc = goal_loc
         visited_points = np.array(list(visited.keys()))
-        distances = np.linalg.norm(visited_points - goal_loc)
+        distances = np.linalg.norm(visited_points - goal_loc, axis=1)
         goal_loc = (visited_points[np.argmin(distances)][0], visited_points[np.argmin(distances)][1])
-        ## rospy.loginfo(f"Recursing dijkstra")
-        ## return dijkstra(im, robot_loc, ((goal_loc[0] + robot_loc[0]) // 2, (goal_loc[1] + robot_loc[1]) // 2), map_data)
-        # goal_loc = tuple(find_highest_concentration_point(visited.keys(), im, map_data, radius=0.25))
-        rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead")
+        rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead.")
         save_map_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
         
     path = []
     current = tuple(goal_loc)
-    # While there's a parent
+    # Reconstruct the path using the parent nodes stored in the visited dictionary
     while current is not None:
         current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
         current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
