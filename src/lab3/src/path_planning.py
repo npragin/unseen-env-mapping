@@ -17,8 +17,7 @@ import numpy as np
 import heapq
 import rospy
 from scipy.ndimage import convolve
-import matplotlib.pyplot as plt
-import os
+from helpers import save_map_image
 from exploring import find_highest_concentration_point
 
 
@@ -298,32 +297,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         # goal_loc = tuple(find_highest_concentration_point(visited.keys(), im, map_data, radius=0.25))
         rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead")
         rospy.logerr(f"Length of visited is {len(visited)}")
-
-
-        rospy.loginfo("Saving visited points visualization")
-
-        fig, ax = plt.subplots()
-
-        # Plot the base image/map
-        plt.imshow(im[1800:2200, 1800:2200], cmap='plasma')
-
-        # Plot visited points in blue
-        ax.scatter(visited_points[:, 0] - 1800, visited_points[:, 1] - 1800, 
-                color='blue', marker='.', s=0.25, alpha=0.5)
-
-        # Plot robot location with yellow star
-        ax.scatter([robot_loc[0] - 1800], [robot_loc[1] - 1800], 
-                color='yellow', marker='*', s=100)
-
-        # Plot goal location with green star
-        ax.scatter([old_goal_loc[0] - 1800], [old_goal_loc[1] - 1800], 
-                color='green', marker='*', s=100)
-
-        ax.invert_yaxis()
-        plt.colorbar()
-        plt.savefig(os.path.expanduser("~/ros_ws/src/lab3/images/visited_points.png"))
-        rospy.loginfo(f"im shape: {im.shape}")
-        rospy.loginfo("Saved visited points visualization")
+        save_map_image("visited_points", visited_points, old_goal_loc, robot_loc)
         
     path = []
     current = tuple(goal_loc)

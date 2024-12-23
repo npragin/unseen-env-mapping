@@ -25,8 +25,7 @@ import heapq
 
 # Using imageio to read in the image
 import rospy
-from helpers import world_to_map
-
+from helpers import world_to_map, save_map_image
 
 # -------------- Showing start and end and path ---------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
@@ -253,7 +252,9 @@ def new_find_best_point(map, map_data, robot_loc):
 
     rospy.logerr("We made it out!")
     if len(priority_queue) == 0:
-        rospy.logerr("We might be done?")
+        rospy.logerr("We probably messed up because the priority queue is empty.")
+        visited_points = np.array(list(visited.keys()))
+        save_map_image("examined_points", visited_points, yellow_star=robot_loc)
 
     # Did this to use with other A* algorithm
     return visited[nearest][1]

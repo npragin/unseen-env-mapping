@@ -19,3 +19,32 @@ def map_to_world(index, map_data):
     world_y = grid_y * map_data.resolution + map_data.origin.position.y
 
     return (world_x, world_y)
+
+def save_map_image(filename, points, green_star=None, yellow_star=None):
+    import matplotlib.pyplot as plt
+    import rospy
+    import os
+
+    rospy.loginfo("Saving visited points visualization")
+
+    _, ax = plt.subplots()
+
+    # Plot the base image/map
+    plt.imshow(map[1800:2200, 1800:2200], cmap='plasma')
+
+    # Plot visited points in blue
+    ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, 
+            color='blue', marker='.', s=0.25, alpha=0.5)
+
+    # Plot robot location with yellow star
+    ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], 
+            color='yellow', marker='*', s=100)
+    
+            # Plot goal location with green star
+    ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], 
+            color='green', marker='*', s=5)
+    
+    ax.invert_yaxis()
+    plt.colorbar()
+    plt.savefig(os.path.expanduser(f"~/ros_ws/src/lab3/images/{filename}.png"))
+    rospy.loginfo(f"Saved visited points visualization as {filename}")
