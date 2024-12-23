@@ -259,7 +259,7 @@ def new_find_best_point(map, map_data, robot_loc):
     if len(priority_queue) == 0:
         rospy.logerr("We probably messed up because the priority queue is empty.")
         visited_points = np.array(list(visited.keys()))
-        save_map_image("examined_points", visited_points, yellow_star=robot_loc)
+        save_map_image("examined_points", map, visited_points, yellow_star=robot_loc)
 
     # Did this to use with other A* algorithm
     return visited[nearest][1]
