@@ -47,4 +47,4 @@ def save_map_image(filename, map, points, green_star=None, yellow_star=None):
     ax.invert_yaxis()
     plt.colorbar()
     plt.savefig(os.path.expanduser(f"~/ros_ws/src/lab3/images/{filename}.png"))
-    rospy.loginfo(f"Saved visited points visualization as {filename}")
+    rospy.logerr(f"Saved visited points visualization as {filename}")

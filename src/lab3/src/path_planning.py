@@ -276,7 +276,6 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         ## return dijkstra(im, robot_loc, ((goal_loc[0] + robot_loc[0]) // 2, (goal_loc[1] + robot_loc[1]) // 2), map_data)
         # goal_loc = tuple(find_highest_concentration_point(visited.keys(), im, map_data, radius=0.25))
         rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead")
-        rospy.logerr(f"Length of visited is {len(visited)}")
         save_map_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
         
     path = []
