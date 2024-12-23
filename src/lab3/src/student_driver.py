@@ -92,8 +92,10 @@ class StudentDriver(Driver):
 			half_window = num_scans_of_concern / 2
 			if half_window % 1 == 0:
 				lower_idx = nearest_safe_cone_idx + int(half_window)
+				# idx_buffer = -2 if lower_idx < len(ranges) / 2 else 2
 				safe_direction = (thetas[lower_idx] + thetas[lower_idx + 1]) / 2
 			else:
+				# idx_buffer = -2 if nearest_safe_cone_idx + int(half_window) < len(ranges) / 2 else 2
 				safe_direction = thetas[nearest_safe_cone_idx + int(half_window)]
 
 			# rospy.loginfo(f"SAFE DIRECTION IS: {safe_direction} OBSTACLE DISTANCE: {obstacle_distance}")
