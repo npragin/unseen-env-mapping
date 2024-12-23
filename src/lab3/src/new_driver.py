@@ -49,7 +49,7 @@ class Driver:
 
 		return t
 	
-	def rotate(self): #NOTE CAN WE MAKE THIS EXACTLY A 360?
+	def rotate(self):
 		command = Driver.zero_twist()
 
 		if self._rotate_count > 0:
@@ -100,7 +100,7 @@ class Driver:
 				self._target_point = None
 				result.success.data = False
 				self._action_server.set_succeeded(result)
-				return #NOTE ADDED THIS
+				return #NOTE: ADDED THIS
 
 			self.target_pub.publish(marker)
 			rate.sleep()
@@ -112,7 +112,7 @@ class Driver:
 		if self._rotate_count > 0:
 			command = self.rotate()
 		elif self._target_point:
-			#NOTE: THIS DIDN'T USED TO HAVE DURATION MODIFICATION
+			# NOTE: ADDED THIS
 			self._target_point.header.stamp = rospy.Time.now() - rospy.Duration(0.2)
 			try:
 				target = self.transform_listener.transformPoint('base_link', self._target_point)
