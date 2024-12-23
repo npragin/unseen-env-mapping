@@ -13,8 +13,10 @@
 	<!-- Start the SLAM node. -->
 	<node pkg="gmapping" name="SLAM" type="slam_gmapping">
 		<remap from="scan" to="base_scan" />
-		<param name="linearUpdate" value="0"/>
-		<param name="angularUpdate" value="0"/>
+		<param name="linearUpdate" value="0" />
+		<param name="angularUpdate" value="0" />
+		<!-- <param name="maxRange" value="90" />
+		<param name="maxUrange" value="80" /> -->
 	</node>
 
 	<node pkg="lab3" name="driver" type="student_driver.py" />

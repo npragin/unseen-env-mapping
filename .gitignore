@@ -1,0 +1,6 @@
+.catkin_workspace
+LICENSE
+build
+devel/
+**/images/
+**/__pycache__/
