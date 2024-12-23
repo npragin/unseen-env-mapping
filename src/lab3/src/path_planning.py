@@ -195,7 +195,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
 
     rospy.loginfo("Starting dijkstras")
     
-    robot_height_in_pixels = int(0.44 / map_data.resolution)
+    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
 
     kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
     
