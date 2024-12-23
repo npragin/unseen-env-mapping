@@ -199,7 +199,7 @@ def new_find_best_point(map, map_data, robot_loc):
     kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
 
     # TODO: Figure out if this filters out unseen areas, seems like it only filters out walls
-    unseen_or_blocked_areas = (map == 0)
+    unseen_or_blocked_areas = (map == 0) # | (map == 128)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
     free_areas = convolve_result == 0
 
@@ -225,6 +225,10 @@ def new_find_best_point(map, map_data, robot_loc):
         if curr_node_closed:
             continue
 
+        if process_bad_nodes and free_areas[curr_node[1], curr_node[0]]:
+            rospy.loginfo("No longer processing bad nodes.")
+            process_bad_nodes = False
+
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
                 if di == 0 and dj == 0:
@@ -234,10 +238,6 @@ def new_find_best_point(map, map_data, robot_loc):
 
                 if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
                     continue
-
-                if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
-                    rospy.logerr("We were processing bad nodes, but no longer!")
-                    process_bad_nodes = False
                 
                 neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
 
@@ -248,12 +248,10 @@ def new_find_best_point(map, map_data, robot_loc):
         # Close the node
         visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
-        if map[curr_node[1], curr_node[0]] == 128 and np.linalg.norm((curr_node[1] - robot_loc[1], curr_node[0] - robot_loc[0])) > np.linalg.norm((0.38 / map_data.resolution, 0.44 / map_data.resolution)):
-            rospy.logerr(f"BREAKING AND BEST IS {curr_node}")
+        if map[curr_node[1], curr_node[0]] == 128 and free_areas[curr_node[1], curr_node[0]] and np.linalg.norm((curr_node[1] - robot_loc[1], curr_node[0] - robot_loc[0])) > np.linalg.norm((0.38 / map_data.resolution, 0.44 / map_data.resolution)):
             nearest = curr_node
             break
 
-    rospy.logerr("We made it out!")
     if len(priority_queue) == 0:
         rospy.logerr("We probably messed up because the priority queue is empty.")
         visited_points = np.array(list(visited.keys()))
