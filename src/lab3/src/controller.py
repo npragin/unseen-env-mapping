@@ -18,7 +18,7 @@ import actionlib
 from lab2.msg import NavTargetAction, NavTargetActionGoal
 
 #Import path_planning and exploring code
-from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors
+from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors
 from exploring import find_all_possible_goals, find_best_point, plot_with_explore_points, find_waypoints
 
 

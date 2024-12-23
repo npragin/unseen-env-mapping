@@ -113,7 +113,7 @@ def is_reachable(im, pix):
     # You can use four or eight connected - eight will return more points
     # YOUR CODE HERE
     #print(pix)
-    neighbors = path_planning.get_neighbors(im, pix)
+    neighbors = path_planning.get_free_neighbors(im, pix)
     if not neighbors:
         return False
     else:

@@ -170,7 +170,7 @@ def eight_connected(pix):
             ret = pix[0] + i, pix[1] + j
             yield ret
 
-def get_neighbors(im, loc):
+def get_free_neighbors(im, loc):
     i, j = loc
     neighbors = [
         (i-1, j),

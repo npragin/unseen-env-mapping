@@ -8,7 +8,7 @@ import numpy as np
 
 from controller import RobotController
 #Import path_planning and exploring code
-from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors, convert_image
+from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors, convert_image
 from exploring import new_find_best_point, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
 from helpers import world_to_map, map_to_world
 import time
