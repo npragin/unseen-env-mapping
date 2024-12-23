@@ -34,7 +34,7 @@ def save_map_image(filename, map, points, green_star=None, yellow_star=None):
 
     # Plot visited points in blue
     ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, 
-            color='blue', marker='.', s=0.25, alpha=0.5)
+            color='blue', marker='.', s=0.25, alpha=1)
 
     # Plot robot location with yellow star
     ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], 
