@@ -32,17 +32,11 @@ def save_map_image(filename, map, points, green_star=None, yellow_star=None):
     # Plot the base image/map
     plt.imshow(map[1800:2200, 1800:2200], cmap='plasma')
 
-    # Plot visited points in blue
-    ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, 
-            color='blue', marker='.', s=0.25, alpha=1)
+    ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, color='blue', marker='.', s=0.25, alpha=1)
 
-    # Plot robot location with yellow star
-    ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], 
-            color='yellow', marker='*', s=100)
+    ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], color='yellow', marker='*', s=100)
     
-            # Plot goal location with green star
-    ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], 
-            color='green', marker='*', s=5)
+    ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], color='green', marker='*', s=5)
     
     ax.invert_yaxis()
     plt.colorbar()
