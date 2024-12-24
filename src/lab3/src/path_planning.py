@@ -107,14 +107,14 @@ def is_free(im, pix):
     """
     if not isinstance(pix, tuple) or len(pix) != 2:
         raise ValueError(f"Invalid pixel coordinate: {pix}")
-    
+
     # Convert to integers
     pix = (int(pix[0]), int(pix[1]))
-    
+
     # Check bounds
     if not (0 <= pix[1] < im.shape[0] and 0 <= pix[0] < im.shape[1]):
         raise IndexError(f"Pixel {pix} is out of bounds for image shape {im.shape}")
-    
+
     # Check if pixel is free
     if im[pix[1], pix[0]] == 255:
         return True
@@ -173,7 +173,7 @@ def get_free_neighbors(im, loc):
     i, j = loc
     neighbors = [
         (i-1, j),
-        (i+1, j), 
+        (i+1, j),
         (i, j-1),
         (i, j+1),
         (i-1, j-1),
@@ -199,7 +199,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
     robot_height_in_pixels_with_buffer = int(robot_height_in_pixels * 1.9)
 
     kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
-    
+
     unseen_or_blocked_areas = (im == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
     free_areas = convolve_result == 0
@@ -243,13 +243,13 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
                 # Don't do anything for the case where we don't move
                 if di == 0 and dj == 0:
                     continue
-                
+
                 neighbor = (node_ij[0] + di, node_ij[1] + dj)
-                
+
                 # Check if neighbor in direction (di, dj) is valid and free
                 if not is_free(im, (neighbor)):
                     continue
-                    
+
                 if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
                     rospy.logerr("We were processing bad nodes, but no longer!")
                     process_bad_nodes = False
@@ -260,7 +260,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
                 # Calculate distance to neighbor and distance to goal and add them to existing cost
                 distance = np.linalg.norm((di, dj)) + visited_distance
                 heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
-                
+
                 # If we haven't tried this path add it to the queue
                 if neighbor not in visited or distance < visited[neighbor][0]:
                     visited[neighbor] = (distance, node_ij, False)
@@ -274,7 +274,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         goal_loc = (visited_points[np.argmin(distances)][0], visited_points[np.argmin(distances)][1])
         rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead.")
         save_map_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
-        
+
     path = []
     current = tuple(goal_loc)
     # Reconstruct the path using the parent nodes stored in the visited dictionary

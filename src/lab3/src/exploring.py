@@ -127,16 +127,16 @@ def find_all_possible_goals(im, map_data):
     @return dictionary or list or binary image of possible pixels"""
 
     # YOUR CODE HERE
-    
+
     # Define masks for unseen and free pixels
     unseen_mask = (im == 128)  # Replace with the actual value for "unseen" pixels
     free_mask = (im == 255)  # Replace with the actual value for "free" pixels
-    
+
     # Define a convolution kernel to check for adjacent unseen pixels
     kernel = np.array([[1, 1, 1],
                        [1, 0, 1],
                        [1, 1, 1]])
-    
+
     #print(f"unseen_mask shape: {unseen_mask.shape}")
     #print(f"kernel shape: {kernel.shape}")
     #print(f"map shape: {map.shape}")
@@ -144,7 +144,7 @@ def find_all_possible_goals(im, map_data):
 
     robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
     robot_kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
-    
+
     unseen_or_blocked_areas = (im == 0)
     convolve_result = convolve(unseen_or_blocked_areas, robot_kernel, mode='constant', cval=1)
     free_areas = convolve_result == 0
@@ -158,14 +158,14 @@ def find_all_possible_goals(im, map_data):
     # Swap axes if needed
     valid_points_swapped = [(y, x) for (x, y) in valid_points] #np.column_stack((valid_points[:,1], valid_points[:0]))
     #print(valid_points_swapped)
-    
+
     # Filter points to include only reachable ones
     reachable_points = [point for point in valid_points_swapped if is_reachable(im, point)]
     #mask = is_reachable(im, valid_points_swapped)
     #reachable_points = valid_points_swapped[mask]
     # Return as set of tuples (row, column format)
     return set(map(tuple, reachable_points))
-    
+
 
 def find_best_point(possible_points, robot_loc):
     """ Pick one of the unseen points to go to
@@ -216,7 +216,7 @@ def new_find_best_point(map, map_data, robot_loc):
         heapq.heappush(priority_queue, (0, robot_loc))
         visited = {}
         visited[robot_loc] = (0, None, False)
-    
+
     nearest = None
     while priority_queue:
         curr_node = heapq.heappop(priority_queue)[1]
@@ -238,7 +238,7 @@ def new_find_best_point(map, map_data, robot_loc):
 
                 if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
                     continue
-                
+
                 neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
 
                 if neighbor not in visited or neighbor_distance < visited[neighbor][0]:
@@ -267,7 +267,7 @@ def new_find_best_point(map, map_data, robot_loc):
         current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
         path.append((current_x_in_space, current_y_in_space))
         current = visited[current][1]
-        
+
     path.reverse()
     return path
 
@@ -286,7 +286,7 @@ def find_closest_point(possible_points, robot_loc, map_data):
 def find_furthest_point(possible_points, robot_loc):
     """
     Pick the furthest point to go to.
-    
+
     @param possible_points: possible points to choose from
     @param robot_loc: location of the robot (x, y)
     """
@@ -304,27 +304,27 @@ def find_furthest_point(possible_points, robot_loc):
 
 def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
     radius_pixels = 10 #int(radius / map_data.resolution)
-    
+
     # Create a binary image of all target points (where im == 128)
     target_points = np.zeros_like(im, dtype=float)
     target_points[im == 128] = 1
-    
+
     # Create circular kernel
     y, x = np.ogrid[-radius_pixels:radius_pixels+1, -radius_pixels:radius_pixels+1]
     kernel = x*x + y*y <= radius_pixels*radius_pixels
     kernel = kernel.astype(float)
-    
+
     # Apply convolution to count nearby points
     concentration_map = convolve(target_points, kernel, mode='constant', cval=0.0)
-    
+
     # Create a mask of possible points
     possible_points = np.array(list(possible_points))
     points_mask = np.zeros_like(im, dtype=bool)
     points_mask[possible_points[:, 0].astype(int), possible_points[:, 1].astype(int)] = True
-    
+
     # Mask the concentration map to only look at possible points
     masked_concentration = np.where(points_mask, concentration_map, -1)
-    
+
     # Find the point with highest concentration
     max_idx = np.unravel_index(np.argmax(masked_concentration), masked_concentration.shape)
     rospy.loginfo(f"max_idx type: {type(max_idx)}, {max_idx}")

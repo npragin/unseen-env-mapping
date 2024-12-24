@@ -48,7 +48,7 @@ class Driver:
 		t.angular.z = 0.0
 
 		return t
-	
+
 	def rotate(self):
 		command = Driver.zero_twist()
 
@@ -57,7 +57,7 @@ class Driver:
 			self._rotate_count -= 1
 
 		return command
-	
+
 	def rotate_360(self):
 		if self._rotate_count == 0:
 			self._rotate_count = 39
@@ -84,7 +84,7 @@ class Driver:
 		marker.pose.position = goal.goal.point
 		marker.pose.orientation.x = 0.0
 		marker.pose.orientation.y = 0.0
-		marker.pose.orientation.z = 0.0		
+		marker.pose.orientation.z = 0.0
 		marker.pose.orientation.w = 1.0
 		marker.scale.x = 0.3
 		marker.scale.y = 0.3

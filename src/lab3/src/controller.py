@@ -39,7 +39,7 @@ class RobotController:
 		# An action server to send the requests to.
 		self.action_client = actionlib.SimpleActionClient('nav_target', NavTargetAction)
 		self.action_client.wait_for_server()
-		
+
 		# Visualize the goal points.
 		self.marker_pub = rospy.Publisher('goal_points', MarkerArray, queue_size=10)
 
@@ -104,7 +104,7 @@ class RobotController:
 			marker.action = Marker.ADD
 			marker.pose.orientation.x = 0.0
 			marker.pose.orientation.y = 0.0
-			marker.pose.orientation.z = 0.0		
+			marker.pose.orientation.z = 0.0
 			marker.pose.orientation.w = 1.0
 			marker.scale.x = 0.1
 			marker.scale.y = 0.1
@@ -127,7 +127,7 @@ class RobotController:
 				marker.pose.position = point.point
 				marker.pose.orientation.x = 0.0
 				marker.pose.orientation.y = 0.0
-				marker.pose.orientation.z = 0.0		
+				marker.pose.orientation.z = 0.0
 				marker.pose.orientation.w = 1.0
 				marker.scale.x = 0.2
 				marker.scale.y = 0.2

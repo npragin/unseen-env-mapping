@@ -5,7 +5,7 @@ def world_to_map(x, y, map_data):
     x_out_of_bounds = grid_x < 0 or grid_x >= map_data.width
     y_out_of_bounds = grid_y < 0 or grid_y >= map_data.height
     out_of_bounds = x_out_of_bounds or y_out_of_bounds
- 
+
     if out_of_bounds:
         return None
 
@@ -35,9 +35,9 @@ def save_map_image(filename, map, points, green_star=None, yellow_star=None):
     ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, color='blue', marker='.', s=0.25, alpha=1)
 
     ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], color='yellow', marker='*', s=100)
-    
+
     ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], color='green', marker='*', s=5)
-    
+
     ax.invert_yaxis()
     plt.colorbar()
     plt.savefig(os.path.expanduser(f"~/ros_ws/src/lab3/images/{filename}.png"))

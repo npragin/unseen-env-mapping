@@ -54,7 +54,7 @@ class StudentDriver(Driver):
 		w_epsilon = 0.1
 		w = 0.38 # Robot's width
 		l = 0.44
-		command = Driver.zero_twist() 
+		command = Driver.zero_twist()
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 

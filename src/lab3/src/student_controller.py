@@ -80,15 +80,15 @@ class StudentController(RobotController):
 
 				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
 				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
-		
+
 				waypoints = find_waypoints(im_thresh, path)
 				self.set_waypoints(waypoints)
 		except Exception as e:
 			import traceback
 			rospy.logerr(f"Error in map_update: {e} \n {traceback.format_exc()}")
-			
+
 			rospy.loginfo('No odometry information.')
-			
+
 	def get_robot_starting_loc(self):
 		while not rospy.is_shutdown():
 			if self._odom:
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
 	# Start the controller.
 	controller = StudentController()
-	
+
 	# This will move the robot to a set of fixed waypoints.  You should not do this, since you don't know
 	# if you can get to all of these points without building a map first.  This is just to demonstrate how
 	# to call the function, and make the robot move as an example.
