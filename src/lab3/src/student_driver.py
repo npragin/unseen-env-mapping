@@ -20,7 +20,6 @@ class StudentDriver(Driver):
 		# Set the threshold to a reasonable number
 		self._robot_width = 0.38
 		self._robot_height = 0.44
-		self._threshold = np.linalg.norm((self._robot_height, self._robot_width))
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		'''
