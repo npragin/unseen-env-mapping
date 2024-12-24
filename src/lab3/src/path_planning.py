@@ -182,8 +182,22 @@ def get_free_neighbors(im, loc):
         (i+1, j-1),
         (i+1, j+1)
     ]
-    return [n for n in neighbors if 0 <= n[0] < im.shape[0] and 0 <= n[1] < im.shape[1] and is_free(im, n)]
+    return [n for n in neighbors if 0 <= n[1] < im.shape[0] and 0 <= n[0] < im.shape[1] and is_free(im, n)]
 
+def has_free_neighbor(im, loc):
+    height, width = im.shape
+    i, j = loc
+
+    i_min = max(0, i-1)
+    i_max = min(height, i+2)
+    j_min = max(0, j-1)
+    j_max = min(width, j+2)
+    
+    for x in range(i_min, i_max):
+        for y in range(j_min, j_max):
+            if (x, y) != loc and im[y, x] == 255:
+                return True
+    return False
 
 
 def dijkstra(im, robot_loc, goal_loc, map_data):

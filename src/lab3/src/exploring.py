@@ -239,7 +239,8 @@ def new_find_best_point(map, map_data, robot_loc):
 
                 neighbor = (curr_node[0] + di, curr_node[1] + dj)
 
-                if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
+                # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
+                if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not path_planning.has_free_neighbor(map, neighbor):
                     continue
 
                 neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
