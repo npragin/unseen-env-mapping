@@ -26,6 +26,7 @@ import heapq
 # Using imageio to read in the image
 import rospy
 from helpers import world_to_map, save_map_image
+from math import ceil
 
 # -------------- Showing start and end and path ---------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
@@ -192,11 +193,13 @@ def new_find_best_point(map, map_data, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
 
     robot_height_in_meters = 0.44
+    robot_width_in_meters = 0.38
     robot_height_in_pixels = robot_height_in_meters / map_data.resolution
-    robot_height_in_pixels_with_buffer = int(robot_height_in_pixels * 2)
+    robot_width_in_pixels = robot_width_in_meters / map_data.resolution
+    robot_diagonal_length_in_pixels_halved = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)) / 2)
 
     # Convolution to avoid pathing too close to the wall
-    kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
+    kernel = np.ones((robot_diagonal_length_in_pixels_halved, robot_diagonal_length_in_pixels_halved))
 
     # TODO: Figure out if this filters out unseen areas, seems like it only filters out walls
     unseen_or_blocked_areas = (map == 0)

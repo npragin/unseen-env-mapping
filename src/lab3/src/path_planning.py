@@ -19,6 +19,7 @@ import rospy
 from scipy.ndimage import convolve
 from helpers import save_map_image
 from exploring import find_highest_concentration_point
+from math import ceil
 
 
 # -------------- Showing start and end and path ---------------
@@ -195,10 +196,12 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
     rospy.loginfo("Starting dijkstras")
 
     robot_height_in_meters = 0.44
+    robot_width_in_meters = 0.38
     robot_height_in_pixels = robot_height_in_meters / map_data.resolution
-    robot_height_in_pixels_with_buffer = int(robot_height_in_pixels * 1.9)
+    robot_width_in_pixels = robot_width_in_meters / map_data.resolution
+    robot_diagonal_length_in_pixels_halved = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)) / 2)
 
-    kernel = np.ones((robot_height_in_pixels_with_buffer, robot_height_in_pixels_with_buffer))
+    kernel = np.ones((robot_diagonal_length_in_pixels_halved, robot_diagonal_length_in_pixels_halved))
 
     unseen_or_blocked_areas = (im == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
