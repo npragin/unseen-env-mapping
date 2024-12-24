@@ -75,7 +75,7 @@ class StudentDriver(Driver):
 		else:
 			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - l / 2
 
-			angle_of_concern = 2 * abs(np.arctan(w / 2 / obstacle_threshold))
+			angle_of_concern = 2 * abs(np.arctan(w / 2 / obstacle_distance))
 			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
 			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
 
@@ -92,13 +92,10 @@ class StudentDriver(Driver):
 			half_window = num_scans_of_concern / 2
 			if half_window % 1 == 0:
 				lower_idx = nearest_safe_cone_idx + int(half_window)
-				# idx_buffer = -2 if lower_idx < len(ranges) / 2 else 2
 				safe_direction = (thetas[lower_idx] + thetas[lower_idx + 1]) / 2
 			else:
-				# idx_buffer = -2 if nearest_safe_cone_idx + int(half_window) < len(ranges) / 2 else 2
 				safe_direction = thetas[nearest_safe_cone_idx + int(half_window)]
 
-			# rospy.loginfo(f"SAFE DIRECTION IS: {safe_direction} OBSTACLE DISTANCE: {obstacle_distance}")
 			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) + 1 if safe_direction > 0 else -1
 			command.linear.x = 0.5 * tanh(1 * (1 / obstacle_distance)) if obstacle_distance > 0.25 else 0
 
