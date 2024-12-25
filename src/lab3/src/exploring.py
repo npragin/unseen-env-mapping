@@ -243,7 +243,7 @@ def new_find_best_point(map, map_data, robot_loc):
                 if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not path_planning.has_free_neighbor(map, neighbor):
                     continue
 
-                neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
+                neighbor_distance = np.linalg.norm(((curr_node[0] + di - robot_loc[0], curr_node[1] + dj - robot_loc[1])))
 
                 if neighbor not in visited or neighbor_distance < visited[neighbor][0]:
                     visited[neighbor] = (neighbor_distance, curr_node, False)
