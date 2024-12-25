@@ -213,9 +213,12 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
     robot_width_in_meters = 0.38
     robot_height_in_pixels = robot_height_in_meters / map_data.resolution
     robot_width_in_pixels = robot_width_in_meters / map_data.resolution
-    robot_diagonal_length_in_pixels_halved = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)) / 2)
+    # We don't half this because the convolution lays the kernel over the pixel, resulting in checking the radius (half the length) around each pixel
+    # In other words, the convolution inherently halves it for us
+    robot_diagonal_length_in_pixels = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)))
 
-    kernel = np.ones((robot_diagonal_length_in_pixels_halved, robot_diagonal_length_in_pixels_halved))
+    # Convolution to avoid pathing too close to the wall
+    kernel = np.ones((robot_diagonal_length_in_pixels, robot_diagonal_length_in_pixels))
 
     unseen_or_blocked_areas = (im == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
