@@ -53,12 +53,13 @@ class StudentDriver(Driver):
 		w_epsilon = 0.1
 		w = 0.38 # Robot's width
 		l = 0.44
+		d = np.linalg.norm((w, l))
 		command = Driver.zero_twist()
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 
 		obstacle_threshold = 0.3 + (l / 2)
-		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < obstacle_threshold))[0]
+		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= d/2) & (ranges < obstacle_threshold))[0]
 
 		if (len(obstacles_in_front_idx) == 0):
 			target_angle = atan2(target[1], target[0])
@@ -74,7 +75,7 @@ class StudentDriver(Driver):
 		else:
 			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - l / 2
 
-			angle_of_concern = 2 * abs(np.arctan(w / 2 / obstacle_distance))
+			angle_of_concern = 2 * abs(np.arctan(d / 2 / obstacle_distance))
 			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
 			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
 
