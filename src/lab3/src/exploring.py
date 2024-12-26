@@ -27,6 +27,7 @@ import heapq
 import rospy
 from helpers import world_to_map, save_map_image
 from math import ceil
+import time
 
 # -------------- Showing start and end and path ---------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
@@ -188,9 +189,11 @@ def find_best_point(possible_points, robot_loc):
 
 visited = None
 priority_queue = None
-
+t = []
 def new_find_best_point(map, map_data, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
+    round_time = time.time()
+    visited_round = []
 
     robot_height_in_meters = 0.44
     robot_width_in_meters = 0.38
@@ -222,6 +225,12 @@ def new_find_best_point(map, map_data, robot_loc):
         heapq.heappush(priority_queue, (0, robot_loc))
         visited = {}
         visited[robot_loc] = (0, None, False)
+    # else:
+    #     points = [p[1] for p in priority_queue]
+    #     distances = np.linalg.norm(np.array(points) - robot_loc, axis=1)
+    #     priority_queue = [(distances[i], points[i]) for i in range(len(points))]
+    #     # TODO: Figure out if we need to add the robot's location to the priority queue before heapifying
+    #     heapq.heapify(priority_queue)
 
     nearest = None
     while priority_queue:
@@ -234,6 +243,9 @@ def new_find_best_point(map, map_data, robot_loc):
         if process_bad_nodes and free_areas[curr_node[1], curr_node[0]]:
             rospy.loginfo("No longer processing bad nodes.")
             process_bad_nodes = False
+
+        if free_areas[curr_node[1], curr_node[0]]:
+            visited_round.append(curr_node)
 
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
@@ -259,10 +271,15 @@ def new_find_best_point(map, map_data, robot_loc):
             nearest = curr_node
             break
 
-    if len(priority_queue) == 0:
-        rospy.logerr("We probably messed up because the priority queue is empty.")
-        visited_points = np.array(list(visited.keys()))
-        save_map_image("examined_points", map, visited_points, yellow_star=robot_loc)
+    # if len(priority_queue) == 0:
+    #     rospy.logerr("We probably messed up because the priority queue is empty.")
+    #     visited_points = np.array(list(visited.keys()))
+    #     save_map_image("examined_points", map, visited_points, yellow_star=robot_loc)
+    global t
+    t.append(time.time() - round_time)
+    rospy.logerr(f"Time taken: {t[-1]}")
+    rospy.logerr(f"Total time taken: {sum(t)}. Average time taken: {sum(t) / len(t)}. Max time taken: {max(t)}. Min time taken: {min(t)}.")
+    save_map_image("examined_points", map, np.array(visited_round), yellow_star=robot_loc)
 
     # Did this to use with other A* algorithm
     return visited[nearest][1]

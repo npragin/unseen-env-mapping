@@ -35,7 +35,8 @@ class Driver:
 		self._action_server = actionlib.SimpleActionServer('nav_target', NavTargetAction, execute_cb=self._action_callback, auto_start=False)
 		self._action_server.start()
 
-		self._waypoints_reached_since_rotate = 0
+		# self._waypoints_reached_since_rotate = 0
+		self._point_initial_distance = 100
 
 	@classmethod
 	def zero_twist(cls):
@@ -62,9 +63,17 @@ class Driver:
 		if self._rotate_count == 0:
 			self._rotate_count = 39
 
+	def rotate_270(self):
+		if self._rotate_count == 0:
+			self._rotate_count = 28
+
 	def rotate_180(self):
 		if self._rotate_count == 0:
 			self._rotate_count = 18
+
+	def rotate_90(self):
+		if self._rotate_count == 0:
+			self._rotate_count = 9
 
 	# Respond to the action request.
 	def _action_callback(self, goal):
@@ -73,6 +82,14 @@ class Driver:
 		result = NavTargetResult()
 
 		self._target_point = goal.goal
+
+		target = self.transform_listener.transformPoint('base_link', self._target_point)
+
+		x = target.point.x
+		y = target.point.y
+		distance = sqrt(x ** 2 + y ** 2)
+
+		self._point_initial_distance = distance
 
 		# Build a marker for the goal point
 		marker = Marker()
@@ -129,10 +146,14 @@ class Driver:
 				#  close_enough_to_waypoint to return True for that case
 				if self.close_enough_to_waypoint(distance, (target.point.x, target.point.y), lidar):
 					self._target_point = None
-					self._waypoints_reached_since_rotate += 1
-					if self._waypoints_reached_since_rotate >= 4:
-						self._waypoints_reached_since_rotate = 0
+					if self._point_initial_distance < 0.5:
+						if self._rotate_count == 0:
+							rospy.logerr("Rotating because goal was close to robot.")
 						self.rotate_360()
+					# self._waypoints_reached_since_rotate += 1
+					# if self._waypoints_reached_since_rotate >= 4:
+					# 	self._waypoints_reached_since_rotate = 0
+					# 	self.rotate_360()
 					command = Driver.zero_twist()
 				else:
 					command = self.get_twist((target.point.x, target.point.y), lidar)
