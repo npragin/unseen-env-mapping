@@ -24,7 +24,6 @@ class StudentController(RobotController):
 		self._robot_position = None
 
 		self._last_distance_reading = 0
-		self._time_since_progress = time.time()
 		self._idle_time_allowed = 8
 
 	def distance_update(self, distance):

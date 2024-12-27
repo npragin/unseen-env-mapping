@@ -20,6 +20,7 @@ from lab2.msg import NavTargetAction, NavTargetActionGoal
 #Import path_planning and exploring code
 from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors
 from exploring import find_all_possible_goals, find_best_point, plot_with_explore_points, find_waypoints
+import time
 
 
 
@@ -54,6 +55,8 @@ class RobotController:
 
 		# Set up a signal handler to deal with ctrl-c so that we close down gracefully.
 		signal.signal(signal.SIGINT, self._shutdown)
+
+		self._time_since_progress = time.time()
 
 	@classmethod
 	def _generate_point(cls, p):
@@ -159,6 +162,7 @@ class RobotController:
 				goal = NavTargetActionGoal()
 				goal.goal = self._waypoints[0]
 				goal.goal.header.stamp = rospy.Time.now()
+				self._time_since_progress = time.time()
 
 				self.action_client.send_goal(goal, feedback_cb=self._feedback_callback)
 				self.action_client.wait_for_result()
