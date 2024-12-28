@@ -365,12 +365,11 @@ def find_waypoints(im, path):
         
         # Check if vectors are not collinear using cross product
         # Add point to the path if the path's direction changes at that point
-        if v1[0] * v2[1] == v1[1] * v2[0]:
+        if np.cross(v1, v2) != 0:
             waypoints.append(path[i])
 
     # Append the goal point
     waypoints.append(path[-1])
-    rospy.loginfo(f"Length of waypoints: {len(waypoints)}. Length of path: {len(path)}")
 
     return waypoints
 
