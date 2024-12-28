@@ -5,6 +5,7 @@ import rospy
 import sys
 
 from math import atan2, sqrt, tanh
+import time
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Point
@@ -35,7 +36,7 @@ class Driver:
 		self._action_server = actionlib.SimpleActionServer('nav_target', NavTargetAction, execute_cb=self._action_callback, auto_start=False)
 		self._action_server.start()
 
-		self._waypoints_reached_since_rotate = 0
+		self._time_of_last_target_point = time.time()
 
 	@classmethod
 	def zero_twist(cls):
@@ -112,6 +113,7 @@ class Driver:
 		if self._rotate_count > 0:
 			command = self.rotate()
 		elif self._target_point:
+			self._time_of_last_target_point = time.time()
 			# NOTE: ADDED THIS
 			self._target_point.header.stamp = rospy.Time.now() - rospy.Duration(0.2)
 			try:
@@ -129,10 +131,6 @@ class Driver:
 				#  close_enough_to_waypoint to return True for that case
 				if self.close_enough_to_waypoint(distance, (target.point.x, target.point.y), lidar):
 					self._target_point = None
-					self._waypoints_reached_since_rotate += 1
-					if self._waypoints_reached_since_rotate >= 4:
-						self._waypoints_reached_since_rotate = 0
-						self.rotate_360()
 					command = Driver.zero_twist()
 				else:
 					command = self.get_twist((target.point.x, target.point.y), lidar)
@@ -142,6 +140,8 @@ class Driver:
 				return
 		else:
 			rospy.logerr("NO TARGET POINT")
+			if time.time() - self._time_of_last_target_point > 1:
+				self.rotate_360()
 			command = Driver.zero_twist()
 		self._cmd_pub.publish(command)
 
