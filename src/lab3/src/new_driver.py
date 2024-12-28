@@ -6,6 +6,7 @@ import sys
 
 from math import atan2, sqrt, tanh
 import time
+import numpy as np
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Point
@@ -50,12 +51,12 @@ class Driver:
 
 		return t
 
-	def rotate(self):
+	def _rotate(self):
 		command = Driver.zero_twist()
 
-		if self._rotate_count > 0:
-			command.angular.z = 6.28
-			self._rotate_count -= 1
+		if self._rotate_count != 0:
+			command.angular.z = 6.28 * np.sign(self._rotate_count)
+			self._rotate_count -= 1 * np.sign(self._rotate_count)
 
 		return command
 
@@ -66,6 +67,14 @@ class Driver:
 	def rotate_180(self):
 		if self._rotate_count == 0:
 			self._rotate_count = 18
+
+	def rotate_90_left(self):
+		if self._rotate_count == 0:
+			self._rotate_count = 9
+
+	def rotate_90_right(self):
+		if self._rotate_count == 0:
+			self._rotate_count = -9
 
 	# Respond to the action request.
 	def _action_callback(self, goal):
@@ -110,8 +119,8 @@ class Driver:
 		self._action_server.set_succeeded(result)
 
 	def _lidar_callback(self, lidar):
-		if self._rotate_count > 0:
-			command = self.rotate()
+		if self._rotate_count != 0:
+			command = self._rotate()
 		elif self._target_point:
 			self._time_of_last_target_point = time.time()
 			# NOTE: ADDED THIS

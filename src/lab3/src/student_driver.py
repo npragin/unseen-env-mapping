@@ -61,12 +61,14 @@ class StudentDriver(Driver):
 		obstacle_threshold = 0.3 + (l / 2)
 		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= d/2) & (ranges < obstacle_threshold))[0]
 
+		target_angle = atan2(target[1], target[0])
+
 		if (len(obstacles_in_front_idx) == 0):
-			target_angle = atan2(target[1], target[0])
 			target_distance = np.linalg.norm(np.array(target))
 
 			if abs(target_angle) > pi / 2:
-				rospy.loginfo('Rotating to face goal')
+				if self._rotate_count != 0:
+					rospy.loginfo('Rotating to face goal')
 				self.rotate_180()
 
 			command.linear.x = target_distance
@@ -83,8 +85,15 @@ class StudentDriver(Driver):
 			safe_cones_idx = np.nonzero(np.all(cones > obstacle_threshold, axis=1))[0]
 
 			if len(safe_cones_idx) == 0:
-				rospy.loginfo('Rotating to face free space')
-				self.rotate_180()
+				if self._rotate_count != 0:
+					rospy.loginfo('Rotating 180 to face free space')
+					
+				if abs(target_angle) > pi / 2:
+					self.rotate_180()
+				elif target_angle > 0:
+					self.rotate_90_left()
+				else:
+					self.rotate_90_right()
 				return command
 
 			nearest_safe_cone_idx = safe_cones_idx[np.argmin(np.abs(safe_cones_idx - (len(cones) / 2)))]
