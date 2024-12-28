@@ -82,6 +82,7 @@ class StudentController(RobotController):
 
 				waypoints = find_waypoints(im_thresh, path)
 				self.set_waypoints(waypoints)
+				self._time_since_progress = time.time()
 		except Exception as e:
 			import traceback
 			rospy.logerr(f"Error in map_update: {e} \n {traceback.format_exc()}")
