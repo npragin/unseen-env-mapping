@@ -353,19 +353,24 @@ def find_waypoints(im, path):
     @param path - the initial path
     @ return - a new path"""
 
-    # Again, no right answer here
-    # YOUR CODE HERE
-    distance_threshold = 5
+    if len(path) < 3:
+        return path
+
     waypoints = []
-    cumulative_distance = 0
-    previous_vector = None
 
-    for i in range(10, len(path), 10):
-        waypoints.append(path[i])
+    for i in range(1, len(path) - 1):
+        # Calculate direction vectors between consecutive points
+        v1 = (path[i][0] - path[i-1][0], path[i][1] - path[i-1][1])
+        v2 = (path[i+1][0] - path[i][0], path[i+1][1] - path[i][1])
+        
+        # Check if vectors are not collinear using cross product
+        # Add point to the path if the path's direction changes at that point
+        if v1[0] * v2[1] == v1[1] * v2[0]:
+            waypoints.append(path[i])
 
-    # Add the last point as a waypoint if it's not already included
-    if len(waypoints) == 0 or waypoints[-1] != path[-1]:
-        waypoints.append(path[-1])
+    # Append the goal point
+    waypoints.append(path[-1])
+    rospy.loginfo(f"Length of waypoints: {len(waypoints)}. Length of path: {len(path)}")
 
     return waypoints
 
