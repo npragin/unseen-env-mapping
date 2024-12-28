@@ -354,7 +354,7 @@ def find_waypoints(im, path):
     @ return - a new path"""
 
     if len(path) < 3:
-        return path
+        return path[1:]
 
     waypoints = []
 
