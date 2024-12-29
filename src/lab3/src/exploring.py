@@ -201,10 +201,8 @@ def new_find_best_point(map, map_data, robot_loc):
     robot_diagonal_length_in_pixels = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)))
 
     # Convolution to avoid pathing too close to the wall
-    # TODO: Instead of a convolution, inflate the walls
     kernel = np.ones((robot_diagonal_length_in_pixels, robot_diagonal_length_in_pixels))
 
-    # TODO: Figure out if this filters out unseen areas, seems like it only filters out walls
     unseen_or_blocked_areas = (map == 0)
     convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
     free_areas = convolve_result == 0
