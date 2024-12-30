@@ -195,6 +195,20 @@ def eight_connected(pix):
             ret = pix[0] + i, pix[1] + j
             yield ret
 
+def get_neighbors(im, loc):
+    i, j = loc
+    neighbors = [
+        (i-1, j),
+        (i+1, j),
+        (i, j-1),
+        (i, j+1),
+        (i-1, j-1),
+        (i-1, j+1),
+        (i+1, j-1),
+        (i+1, j+1)
+    ]
+    return [n for n in neighbors if 0 <= n[1] < im.shape[0] and 0 <= n[0] < im.shape[1]]
+
 def get_free_neighbors(im, loc):
     i, j = loc
     neighbors = [
@@ -260,7 +274,9 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         visited_closed_yn = visited_triplet[2]
 
         #  Step 1: Break out of the loop if node_ij is the goal node
-        if node_ij == goal_loc:
+        if goal_loc in get_neighbors(im, node_ij):
+            # We don't want to park on the goal, it might not be a safe area
+            goal_loc = node_ij
             break
 
         #  Step 2: If this node is closed, skip it
