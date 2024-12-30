@@ -6,6 +6,7 @@ import rospy
 
 import signal
 from threading import Lock
+import os
 
 import message_filters
 import tf
@@ -66,6 +67,9 @@ class RobotController:
 		map_point.point.z = 0.0
 
 		return map_point
+
+	def _shutdown_all_nodes(self):
+		os.kill(os.getppid(), signal.SIGINT)
 
 	def _shutdown(self, sig, frame):
 		self.set_waypoints([])

@@ -10,7 +10,7 @@ from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors, convert_image, convert_image_inflated_walls
 from exploring import new_find_best_point, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
-from helpers import world_to_map, map_to_world
+from helpers import world_to_map, map_to_world, save_map_as_image
 import time
 from math import ceil
 
@@ -84,6 +84,15 @@ class StudentController(RobotController):
 				# path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
 
 				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
+
+				if best_point is None:
+					rospy.logerr(f"Finished in {rospy.get_time()} seconds.")
+					if save_map_as_image(im):
+						rospy.logerr(f"Saved map as image.")
+					else:
+						rospy.logerr(f"Failed to save map as image.")
+					self._shutdown_all_nodes()
+
 				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
 
 				waypoints = find_waypoints(im_thresh, path)
