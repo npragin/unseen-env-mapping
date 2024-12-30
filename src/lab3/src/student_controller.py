@@ -8,10 +8,11 @@ import numpy as np
 
 from controller import RobotController
 #Import path_planning and exploring code
-from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors, convert_image
+from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors, convert_image, convert_image_inflated_walls
 from exploring import new_find_best_point, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
 from helpers import world_to_map, map_to_world
 import time
+from math import ceil
 
 class StudentController(RobotController):
 	'''
@@ -22,6 +23,10 @@ class StudentController(RobotController):
 	def __init__(self):
 		super().__init__()
 		self._robot_position = None
+
+		self._robot_width_in_meters = 0.38
+		self._robot_height_in_meters = 0.44
+		self._robot_diagonal_length_in_meters = np.linalg.norm((self._robot_width_in_meters, self._robot_height_in_meters))
 
 		self._last_distance_reading = 0
 		self._idle_time_allowed = 8
@@ -63,10 +68,11 @@ class StudentController(RobotController):
 				self._time_since_progress = time.time()
 				# The (x, y) position of the robot can be retrieved like this.
 				robot_position_world = (point.point.x, point.point.y)
+				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_data.resolution)
 
 				self._robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
 				im = np.array(map.data).reshape(map.info.height, map.info.width)
-				im_thresh = convert_image(im, wall_threshold=0.8, free_threshold=0.2)
+				im_thresh = convert_image_inflated_walls(im, 0.8, 0.2, robot_diagonal_length_in_pixels)
 
 				# rospy.loginfo(f"finding points")
 				# points = find_all_possible_goals(im_thresh, map_data)
