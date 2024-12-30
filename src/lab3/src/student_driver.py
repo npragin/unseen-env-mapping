@@ -67,7 +67,7 @@ class StudentDriver(Driver):
 			target_distance = np.linalg.norm(np.array(target))
 
 			if abs(target_angle) > pi / 2:
-				if self._rotate_count != 0:
+				if self._rotate_count == 0:
 					rospy.loginfo('Rotating to face goal')
 				self.rotate_180()
 
@@ -85,8 +85,8 @@ class StudentDriver(Driver):
 			safe_cones_idx = np.nonzero(np.all(cones > obstacle_threshold, axis=1))[0]
 
 			if len(safe_cones_idx) == 0:
-				if self._rotate_count != 0:
-					rospy.loginfo('Rotating 180 to face free space')
+				if self._rotate_count == 0:
+					rospy.loginfo('Rotating to face free space')
 					
 				if abs(target_angle) > pi / 2:
 					self.rotate_180()
