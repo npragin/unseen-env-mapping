@@ -251,7 +251,7 @@ def new_find_best_point(map, map_data, robot_loc):
         save_map_as_debug_image("examined_points", map, visited_points, yellow_star=robot_loc)
 
     # Did this to use with other A* algorithm
-    return visited[nearest][1]
+    return visited[nearest][1] if nearest is not None else None
 
     path = []
     current = nearest
