@@ -58,7 +58,7 @@ class StudentDriver(Driver):
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 
-		obstacle_threshold = 0.3 + (l / 2)
+		obstacle_threshold = d / 2 + l / 2
 		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= d/2) & (ranges < obstacle_threshold))[0]
 
 		target_angle = atan2(target[1], target[0])
