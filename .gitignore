@@ -2,5 +2,5 @@
 LICENSE
 build
 devel/
-**/images/
+**/images/*
 **/__pycache__/
