@@ -25,7 +25,7 @@ import heapq
 
 # Using imageio to read in the image
 import rospy
-from helpers import world_to_map, save_map_image
+from helpers import world_to_map, save_map_as_debug_image
 from math import ceil
 
 # -------------- Showing start and end and path ---------------

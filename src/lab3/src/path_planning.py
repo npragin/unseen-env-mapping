@@ -17,7 +17,7 @@ import numpy as np
 import heapq
 import rospy
 from scipy.ndimage import convolve
-from helpers import save_map_image
+from helpers import save_map_as_debug_image
 from exploring import find_highest_concentration_point
 from math import ceil
 import cv2
@@ -321,7 +321,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         distances = np.linalg.norm(visited_points - goal_loc, axis=1)
         goal_loc = (visited_points[np.argmin(distances)][0], visited_points[np.argmin(distances)][1])
         rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead.")
-        save_map_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
+        save_map_as_debug_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
 
     path = []
     current = tuple(goal_loc)

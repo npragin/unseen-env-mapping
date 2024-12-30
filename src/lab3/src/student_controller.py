@@ -111,7 +111,6 @@ class StudentController(RobotController):
 				return (position.x, position.y)
 			rospy.sleep(0.1)
 
-
 if __name__ == '__main__':
 	# Initialize the node.
 	rospy.init_node('student_controller', argv=sys.argv)
