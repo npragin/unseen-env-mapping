@@ -241,7 +241,7 @@ def new_find_best_point(map, map_data, robot_loc):
         # Close the node
         visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
-        if map[curr_node[1], curr_node[0]] == 128 and free_areas[curr_node[1], curr_node[0]] and np.linalg.norm((curr_node[1] - robot_loc[1], curr_node[0] - robot_loc[0])) > np.linalg.norm((0.38 / map_data.resolution, 0.44 / map_data.resolution)):
+        if map[curr_node[1], curr_node[0]] == 128 and np.linalg.norm((curr_node[1] - robot_loc[1], curr_node[0] - robot_loc[0])) > np.linalg.norm((0.38 / map_data.resolution, 0.44 / map_data.resolution)):
             nearest = curr_node
             break
 
