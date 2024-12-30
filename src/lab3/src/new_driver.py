@@ -150,8 +150,10 @@ class Driver:
 		else:
 			rospy.logerr("NO TARGET POINT")
 			if time.time() - self._time_of_last_target_point > 1:
-				self.rotate_360()
-			command = Driver.zero_twist()
+				self._rotate_count += 1
+				command = self._rotate()
+			else:
+				command = Driver.zero_twist()
 		self._cmd_pub.publish(command)
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
