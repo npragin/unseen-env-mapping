@@ -192,20 +192,7 @@ priority_queue = None
 def new_find_best_point(map, map_data, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
 
-    robot_height_in_meters = 0.44
-    robot_width_in_meters = 0.38
-    robot_height_in_pixels = robot_height_in_meters / map_data.resolution
-    robot_width_in_pixels = robot_width_in_meters / map_data.resolution
-    # We don't half this because the convolution lays the kernel over the pixel, resulting in checking the radius (half the length) around each pixel
-    # In other words, the convolution inherently halves it for us
-    robot_diagonal_length_in_pixels = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)))
-
-    # Convolution to avoid pathing too close to the wall
-    kernel = np.ones((robot_diagonal_length_in_pixels, robot_diagonal_length_in_pixels))
-
-    unseen_or_blocked_areas = (map == 0)
-    convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
-    free_areas = convolve_result == 0
+    free_areas = map != 0
 
     # Allow processing points too close to the wall if robot is too close to the wall
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2

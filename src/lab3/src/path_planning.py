@@ -20,7 +20,7 @@ from scipy.ndimage import convolve
 from helpers import save_map_image
 from exploring import find_highest_concentration_point
 from math import ceil
-
+import cv2
 
 # -------------- Showing start and end and path ---------------
 def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, path=None):
@@ -127,7 +127,7 @@ def convert_image(im, wall_threshold, free_threshold):
     @param im - WXHX ?? image (depends on input)
     @param wall_threshold - number between 0 and 1 to indicate wall
     @param free_threshold - number between 0 and 1 to indicate free space
-    @return an image of the same WXH but with 0 (free) 255 (wall) 128 (unseen)"""
+    @return an image of the same WXH but with 0 (wall) 255 (free space) 128 (unseen)"""
 
     # Assume all is unseen
     im_ret = np.zeros((im.shape[0], im.shape[1]), dtype='uint8') + 128
@@ -144,7 +144,32 @@ def convert_image(im, wall_threshold, free_threshold):
     im_ret[(im < free_threshold) & (im != -1)] = 255
     return im_ret
 
+def convert_image_inflated_walls(im, wall_threshold, free_threshold, kernel_size):
+    """ Convert the image to a thresholded image with not seen pixels marked
+    @param im - WXHX ?? image (depends on input)
+    @param wall_threshold - number between 0 and 1 to indicate wall
+    @param free_threshold - number between 0 and 1 to indicate free space
+    @return an image of the same WXH but with 0 (wall) 255 (free space) 128 (unseen)"""
 
+    # Assume all is unseen
+    im_ret = np.zeros((im.shape[0], im.shape[1]), dtype='uint8') + 128
+
+    im_avg = im
+    if len(im.shape) == 3:
+        # RGB image - convert to gray scale
+        im_avg = np.mean(im, axis=2)
+    # Force into 0,1
+    im_avg = im_avg / np.max(im_avg)
+    # threshold
+    #   in our example image, black is walls, white is free
+    im_ret[(im < free_threshold) & (im != -1)] = 255
+
+    wall_mask = (im > wall_threshold).astype(np.uint8)
+    kernel = np.ones((kernel_size, kernel_size), dtype='uint8')
+    dilated = cv2.dilate(wall_mask, kernel, iterations=1)
+    im_ret[dilated > 0] = 0
+    
+    return im_ret
 
 # -------------- Getting 4 or 8 neighbors ---------------
 def four_connected(pix):
@@ -209,20 +234,7 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
 
     rospy.loginfo("Starting dijkstras")
 
-    robot_height_in_meters = 0.44
-    robot_width_in_meters = 0.38
-    robot_height_in_pixels = robot_height_in_meters / map_data.resolution
-    robot_width_in_pixels = robot_width_in_meters / map_data.resolution
-    # We don't half this because the convolution lays the kernel over the pixel, resulting in checking the radius (half the length) around each pixel
-    # In other words, the convolution inherently halves it for us
-    robot_diagonal_length_in_pixels = ceil(np.linalg.norm((robot_height_in_pixels, robot_width_in_pixels)))
-
-    # Convolution to avoid pathing too close to the wall
-    kernel = np.ones((robot_diagonal_length_in_pixels, robot_diagonal_length_in_pixels))
-
-    unseen_or_blocked_areas = (im == 0)
-    convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
-    free_areas = convolve_result == 0
+    free_areas = im != 0
 
     goal_loc = (goal_loc[0], goal_loc[1])
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
