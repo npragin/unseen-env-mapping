@@ -69,7 +69,7 @@ class StudentDriver(Driver):
 			if abs(target_angle) > pi / 2:
 				if self._rotate_count == 0:
 					rospy.loginfo('Rotating to face goal')
-				self.rotate_180()
+					self._rotate_count += round(target_angle / (2 * pi) * 39)
 
 			command.linear.x = target_distance
 			command.angular.z = target_angle * 0.75
