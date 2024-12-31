@@ -298,12 +298,12 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
                 if not is_free(im, (neighbor)):
                     continue
 
+                if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
+                    continue
+
                 if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
                     rospy.logerr("We were processing bad nodes, but no longer!")
                     process_bad_nodes = False
-
-                if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
-                    continue
 
                 # Calculate distance to neighbor and distance to goal and add them to existing cost
                 distance = np.linalg.norm((di, dj)) + visited_distance

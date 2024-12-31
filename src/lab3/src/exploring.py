@@ -214,10 +214,6 @@ def new_find_best_point(map, map_data, robot_loc):
         if curr_node_closed:
             continue
 
-        if process_bad_nodes and free_areas[curr_node[1], curr_node[0]]:
-            rospy.loginfo("No longer processing bad nodes.")
-            process_bad_nodes = False
-
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
                 if di == 0 and dj == 0:
@@ -228,6 +224,10 @@ def new_find_best_point(map, map_data, robot_loc):
                 # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
                 if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not path_planning.has_free_neighbor(map, neighbor):
                     continue
+
+                if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
+                    rospy.loginfo("No longer processing bad nodes.")
+                    process_bad_nodes = False
 
                 neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
 
