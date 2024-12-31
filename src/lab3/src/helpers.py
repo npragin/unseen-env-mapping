@@ -54,7 +54,7 @@ def save_map_as_image(map):
 
     im = _trim_map_image(im)
 
-    cv2.imwrite(os.path.expanduser("~/ros_ws/src/lab3/images/completed_map.png"), im)
+    return cv2.imwrite(os.path.expanduser("~/ros_ws/src/lab3/images/completed_map.png"), im)
 
 def _trim_map_image(im):
     import numpy as np
