@@ -186,8 +186,8 @@ def find_best_point(possible_points, robot_loc):
 
     return closest_point
 
-visited = None
-priority_queue = None
+visited = {}
+priority_queue = []
 
 def new_find_best_point(map, map_data, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
@@ -202,9 +202,6 @@ def new_find_best_point(map, map_data, robot_loc):
     # Initialize data structures for Dijkstra
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     global visited, priority_queue
-    if visited is None and priority_queue is None:
-        priority_queue = []
-        visited = {}
 
     heapq.heappush(priority_queue, (0, robot_loc))
     visited[robot_loc] = (0, None, False)
