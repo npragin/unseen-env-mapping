@@ -87,13 +87,7 @@ class StudentDriver(Driver):
 			if len(safe_cones_idx) == 0:
 				if self._rotate_count == 0:
 					rospy.loginfo('Rotating to face free space')
-					
-				if abs(target_angle) > pi / 2:
-					self.rotate_180()
-				elif target_angle > 0:
-					self.rotate_90_left()
-				else:
-					self.rotate_90_right()
+					self._rotate_count += round(angle_of_concern / (2 * pi) * 39) * np.sign(target_angle)
 				return command
 
 			nearest_safe_cone_idx = safe_cones_idx[np.argmin(np.abs(safe_cones_idx - (len(cones) / 2)))]
