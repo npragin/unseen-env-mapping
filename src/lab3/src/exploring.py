@@ -231,7 +231,7 @@ def new_find_best_point(map, map_data, robot_loc):
 
                 neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
 
-                if neighbor not in visited or neighbor_distance < visited[neighbor][0]:
+                if neighbor not in visited:
                     visited[neighbor] = (neighbor_distance, curr_node, False)
                     heapq.heappush(priority_queue, (neighbor_distance, neighbor))
 
