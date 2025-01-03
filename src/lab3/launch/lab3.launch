@@ -17,7 +17,10 @@
 		<param name="angularUpdate" value="0" />
 	</node>
 
+	<!-- Start the driver and controller nodes. -->
 	<node pkg="lab3" name="driver" type="student_driver.py" />
 	<node pkg="lab3" name="controller" type="student_controller.py" />
 
+	<arg name="record" default="false" />
+	<node pkg="rosbag" type="record" name="map_recorder" args="-O $(find lab3)/bags/map_recording /map /tf /odom /base_scan" if="$(arg record)" />
 </launch>
