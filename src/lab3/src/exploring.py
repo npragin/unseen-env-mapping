@@ -192,6 +192,12 @@ priority_queue = []
 def new_find_best_point(map, map_data, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
 
+    # Set the minimum distance from the robot to the goal
+    # Using half the lidar range to balance information gain and scan overlap
+    lidar_range_in_meters = 8
+    lidar_range_in_pixels = ceil(lidar_range_in_meters / map_data.resolution)
+    distance_restriction = lidar_range_in_pixels / 2
+
     free_areas = map != 0
 
     # Allow processing points too close to the wall if robot is too close to the wall
@@ -203,13 +209,16 @@ def new_find_best_point(map, map_data, robot_loc):
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     global visited, priority_queue
 
+    rejected_candidate_goals = []
+    furthest_rejected_goal = None
+
     heapq.heappush(priority_queue, (0, robot_loc))
     visited[robot_loc] = (0, None, False)
 
     nearest = None
-    while priority_queue:
-        curr_node = heapq.heappop(priority_queue)[1]
-        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
+    while priority_queue and nearest is None:
+        curr_node_distance, curr_node = heapq.heappop(priority_queue)
+        _, curr_node_parent, curr_node_closed = visited[curr_node]
 
         if curr_node_closed:
             continue
@@ -234,22 +243,31 @@ def new_find_best_point(map, map_data, robot_loc):
                 if neighbor not in visited:
                     visited[neighbor] = (neighbor_distance, curr_node, False)
                     heapq.heappush(priority_queue, (neighbor_distance, neighbor))
+                    
+        # Close the node if it's seen or selected as the goal
+        if map[curr_node[1], curr_node[0]] == 128:
+            if curr_node_distance >= distance_restriction:
+                nearest = curr_node
+                visited[curr_node] = (curr_node_distance, curr_node_parent, True)
+            else:
+                if furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
+                    furthest_rejected_goal = curr_node
+                rejected_candidate_goals.append(curr_node)
+        else:
+            visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
-        # Close the node
-        visited[curr_node] = (curr_node_distance, curr_node_parent, True)
+    # If we have to return the furthest rejected goal, remove it from the rejected candidate goals and close it
+    if nearest is None and furthest_rejected_goal is not None:
+        rejected_candidate_goals.remove(furthest_rejected_goal)
+        visited[furthest_rejected_goal] = (visited[furthest_rejected_goal][0], visited[furthest_rejected_goal][1], True)
 
-        if map[curr_node[1], curr_node[0]] == 128 and np.linalg.norm((curr_node[1] - robot_loc[1], curr_node[0] - robot_loc[0])) > np.linalg.norm((0.38 / map_data.resolution, 0.44 / map_data.resolution)):
-            nearest = curr_node
-            break
+    # Add the rejected candidate goals back to the priority queue to reconsider them later
+    for point in rejected_candidate_goals:
+        heapq.heappush(priority_queue, (visited[point][0], point))
 
-    if len(priority_queue) == 0:
-        rospy.logerr("We probably messed up because the priority queue is empty.")
-        visited_points = np.array(list(visited.keys()))
-        save_map_as_debug_image("examined_points", map, visited_points, yellow_star=robot_loc)
+    return nearest if nearest is not None else furthest_rejected_goal
 
-    # Did this to use with other A* algorithm
-    return visited[nearest][1] if nearest is not None else None
-
+    # Leaving this in case we can find a way to construct a path from this algorithm
     path = []
     current = nearest
     while current:
