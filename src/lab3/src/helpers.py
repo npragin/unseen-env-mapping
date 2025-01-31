@@ -33,13 +33,13 @@ def save_map_as_debug_image(filename, map, points, green_star=None, yellow_star=
     plt.imshow(map[1800:2200, 1800:2200], cmap='plasma')
 
     if points is not None and len(points) > 0:
-        ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, color='blue', marker='.', s=0.25, alpha=1)
+        ax.scatter(points[:, 0] - 1800, points[:, 1] - 1800, color='cyan', marker='.', s=1, alpha=1)
 
     if yellow_star:
-        ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], color='yellow', marker='*', s=100)
+        ax.scatter([yellow_star[0] - 1800], [yellow_star[1] - 1800], color='black', marker='*', s=25)
         
     if green_star:
-        ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], color='green', marker='*', s=5)
+        ax.scatter([green_star[0] - 1800], [green_star[1] - 1800], color='green', marker='*', s=25)
 
     ax.invert_yaxis()
     plt.colorbar()
