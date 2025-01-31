@@ -209,6 +209,13 @@ def new_find_best_point(map, map_data, robot_loc):
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     global visited, priority_queue
 
+    # Updating distance from robot for all points in priority queue
+    if len(priority_queue) > 0:
+        points = set(p[1] for p in priority_queue if not visited[p[1]][2])
+        distances = path_planning.multi_goal_astar(map, robot_loc, points)
+        priority_queue = [(distance, point) for point, distance in distances.items()]
+        heapq.heapify(priority_queue)
+
     rejected_candidate_goals = []
     furthest_rejected_goal = None
 
