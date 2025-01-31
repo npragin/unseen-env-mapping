@@ -18,7 +18,6 @@ import heapq
 import rospy
 from scipy.ndimage import convolve
 from helpers import save_map_as_debug_image
-from exploring import find_highest_concentration_point
 from math import ceil
 import cv2
 
@@ -209,6 +208,21 @@ def get_neighbors(im, loc):
     ]
     return [n for n in neighbors if 0 <= n[1] < im.shape[0] and 0 <= n[0] < im.shape[1]]
 
+def get_neighbors_with_cost(im, loc):
+    i, j = loc
+    root_2 = np.sqrt(2)
+    neighbors = [
+        ((i-1, j), 1),
+        ((i+1, j), 1),
+        ((i, j-1), 1),
+        ((i, j+1), 1),
+        ((i-1, j-1), root_2),
+        ((i-1, j+1), root_2),
+        ((i+1, j-1), root_2),
+        ((i+1, j+1), root_2)
+    ]
+    return [n for n in neighbors if 0 <= n[0][1] < im.shape[0] and 0 <= n[0][0] < im.shape[1]]
+
 def get_free_neighbors(im, loc):
     i, j = loc
     neighbors = [
@@ -333,6 +347,68 @@ def dijkstra(im, robot_loc, goal_loc, map_data):
         current = visited[current][1]
 
     return path
+
+def multi_goal_astar(im, robot_loc, goals):
+    """ Occupancy grid image, with robot and goal loc as pixels
+    @param im - the thresholded image
+    @param robot_loc - where the robot is (tuple, i,j)
+    @param goals - list of goals (tuple, i,j)
+    @returns a dictionary of distances to each goal"""
+    
+    free_areas = im != 0
+    process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
+
+
+    open_set = [(0, robot_loc)]  # (f_score, node)
+    closed_set = set()
+    came_from = {goal: {} for goal in goals}
+    g_score = {robot_loc: 0}
+    path_distances = {}
+    remaining_goals = set(goals)
+    
+    
+    while open_set and remaining_goals:
+        current_f, current = heapq.heappop(open_set)
+
+        # Check if this is a goal node we haven't found yet
+        if current in remaining_goals:
+            path_distances[current] = g_score[current]
+        
+            remaining_goals.remove(current)
+
+            if len(remaining_goals) == 0:
+                break
+
+        if current in closed_set:
+            continue
+
+        closed_set.add(current)
+
+        for neighbor, cost in get_neighbors_with_cost(im, current):
+            if neighbor in closed_set:
+                continue
+
+            if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not has_free_neighbor(im, neighbor):
+                continue
+
+            if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
+                process_bad_nodes = False
+
+            tentative_g = g_score[current] + cost
+
+            if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                # Found a better path to this neighbor
+                for goal in remaining_goals:
+                    came_from[goal][neighbor] = current
+                g_score[neighbor] = tentative_g
+                
+                # Use minimum f_score to any remaining goal
+                min_heuristic = min(np.linalg.norm((neighbor[0] - goal[0], neighbor[1] - goal[1])) 
+                          for goal in remaining_goals)
+                f_score = tentative_g + min_heuristic
+                heapq.heappush(open_set, (f_score, neighbor))
+    
+    return path_distances
 
 def open_image(im_name):
     """ A helper function to open up the image and the yaml file and threshold
