@@ -191,7 +191,7 @@ if __name__ == '__main__':
 
 	# This creates the controller then sends some starting way points to get the robot moving
 	controller = RobotController()
-	controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
+
 	controller.send_points()
 
 	rospy.spin()

@@ -143,7 +143,7 @@ def convert_image(im, wall_threshold, free_threshold):
     im_ret[(im < free_threshold) & (im != -1)] = 255
     return im_ret
 
-def convert_image_inflated_walls(im, wall_threshold, free_threshold, kernel_size):
+def convert_map_to_configuration_space(im, wall_threshold, free_threshold, kernel_size):
     """ Convert the image to a thresholded image with not seen pixels marked
     @param im - WXHX ?? image (depends on input)
     @param wall_threshold - number between 0 and 1 to indicate wall
@@ -253,7 +253,7 @@ def has_free_neighbor(im, loc):
     return False
 
 
-def dijkstra(im, robot_loc, goal_loc, map_data):
+def a_star(im, robot_loc, goal_loc, map_data):
     """ Occupancy grid image, with robot and goal loc as pixels
     @param im - the thresholded image - use is_free(i, j) to determine if in reachable node
     @param robot_loc - where the robot is (tuple, i,j)
@@ -464,7 +464,7 @@ if __name__ == '__main__':
             if is_free(im_thresh, (i, j)):
                 print(f"Free {i} {j}")
     """
-    path = dijkstra(im_thresh, robot_start_loc, robot_goal_loc)
+    path = a_star(im_thresh, robot_start_loc, robot_goal_loc)
     plot_with_path(im, im_thresh, zoom=zoom, robot_loc=robot_start_loc, goal_loc=robot_goal_loc, path=path)
 
     # Depending on if your mac, windows, linux, and if interactive is true, you may need to call this to get the plt

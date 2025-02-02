@@ -354,7 +354,7 @@ def calculate_vector(point1, point2):
     """Calculate the vector from point1 to point2."""
     return point2[0] - point1[0], point2[1] - point1[1]
 
-def find_waypoints(im, path):
+def generate_waypoints(im, path):
     """ Place waypoints along the path
     @param im - the thresholded image
     @param path - the initial path
@@ -394,8 +394,8 @@ if __name__ == '__main__':
 
     plot_with_explore_points(im_thresh, zoom=0.1, robot_loc=robot_start_loc, explore_points=all_unseen, best_pt=best_unseen)
 
-    path = path_planning.dijkstra(im_thresh, robot_start_loc, best_unseen, 50)
-    waypoints = find_waypoints(im_thresh, path)
+    path = path_planning.a_star(im_thresh, robot_start_loc, best_unseen, 50)
+    waypoints = generate_waypoints(im_thresh, path)
     path_planning.plot_with_path(im, im_thresh, zoom=0.1, robot_loc=robot_start_loc, goal_loc=best_unseen, path=waypoints)
 
     # Depending on if your mac, windows, linux, and if interactive is true, you may need to call this to get the plt

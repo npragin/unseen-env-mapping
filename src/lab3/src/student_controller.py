@@ -3,22 +3,21 @@
 
 import sys
 import rospy
-import signal
 import numpy as np
 
 from controller import RobotController
 #Import path_planning and exploring code
-from path_planning import dijkstra, open_image, plot_with_path, is_free, get_free_neighbors, convert_image, convert_image_inflated_walls
-from exploring import new_find_best_point, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_best_point, plot_with_explore_points, find_waypoints, find_furthest_point
-from helpers import world_to_map, map_to_world, save_map_as_image
+from path_planning import a_star, convert_map_to_configuration_space
+from exploring import new_find_best_point, generate_waypoints, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_furthest_point
+from helpers import world_to_map, save_map_as_image
 import time
 from math import ceil
 
 class StudentController(RobotController):
 	'''
-	This class allows you to set waypoints that the robot will follow.  These robots should be in the map
-	coordinate frame, and will be automatially sent to the code that actually moves the robot, contained in
-	StudentDriver.
+	This class sets waypoints that the robot will follow. These waypoints should be in
+	the map coordinate frame, and will be automatially sent to the code that moves the
+	robot, contained in StudentDriver.
 	'''
 	def __init__(self):
 		super().__init__()
@@ -28,51 +27,76 @@ class StudentController(RobotController):
 		self._robot_height_in_meters = 0.44
 		self._robot_diagonal_length_in_meters = np.linalg.norm((self._robot_width_in_meters, self._robot_height_in_meters))
 
+		# We want to keep track of progress towards the goal to understand if we are stuck
 		self._last_distance_reading = 0
 		self._idle_time_allowed = 8
+		self._distance_threshold = 0.2
 
 	def distance_update(self, distance):
 		'''
-		This function is called every time the robot moves towards a goal.  If you want to make sure that
-		the robot is making progress towards it's goal, then you might want to check that the distance to
-		the goal is generally going down.  If you want to change where the robot is heading to, you can
-		make a call to set_waypoints here.  This call will override the current set of waypoints, and the
-		robot will start to drive towards the first waypoint in the new list.
+		Updates the robot's progress tracking as it moves toward its current goal point.
+		
+		Checks if meaningful progress has been made by comparing the change in distance
+		against a threshold, tracks how long the robot has been idle (not making progress),
+		and updates progress tracking only when meaningful progress is made within the
+		allowed idle time
 
 		Parameters:
 			distance:	The distance to the current goal.
 		'''
-		if abs(self._last_distance_reading - distance) >= 0.2 and time.time() - self._time_since_progress <= self._idle_time_allowed:
+		distance_traveled = abs(self._last_distance_reading - distance)
+		meaningful_progress_made = distance_traveled >= self._distance_threshold
+		idle_time = time.time() - self._time_since_progress
+
+		if meaningful_progress_made and idle_time <= self._idle_time_allowed:
 			self._last_distance_reading = distance
 			self._time_since_progress = time.time()
 
 	def map_update(self, point, map, map_data):
 		'''
-		This function is called every time a new map update is available from the SLAM system.  If you want
-		to change where the robot is driving, you can do it in this function.  If you generate a path for
-		the robot to follow, you can pass it to the driver code using set_waypoints().  Again, this will
-		override any current set of waypoints that you might have previously sent.
+		Processes new map updates from the SLAM system and generates waypoints for the robot.
+		
+		This function is called whenever a new map update is available and generates new
+		waypoints if we have no pending waypoints or the robot is stuck.
+
+		The function converts the robot's position to map coordinates, creates a 
+		configuration space representation of the map, finds an optimal goal point, 
+		generates a path to that goal using A*, and creates waypoints from that path.
+		If no valid goal point is found, it saves the final map and shuts down all nodes.
 
 		Parameters:
-			point:		A PointStamped containing the position of the robot, in the map coordinate frame.
-			map:		An OccupancyGrid containing the current version of the map.
-			map_data:	A MapMetaData containing the current map meta data.
+			point (PointStamped):	The position of the robot, in the world coordinate frame.
+			map (OccupancyGrid):	The current version of the map.
+			map_data (MapMetaData):	The current map meta data.
 		'''
 		rospy.loginfo('Got a map update.')
 
-		# It's possible that the position passed to this function is None.  This try-except block will deal
-		# with that.  Trying to unpack the position will fail if it's None, and this will raise an exception.
-		# We could also explicitly check to see if the point is None.
+		# It's possible that the position (point) passed to this function is None.
+		# This try-except block will deal with that.
 		try:
+			# Only generate a goal point if we don't have any waypoints or if we are stuck
 			if self._waypoints is None or len(self._waypoints) == 0 or time.time() - self._time_since_progress > 8:
+				# Update time since we last made progress
 				self._time_since_progress = time.time()
-				# The (x, y) position of the robot can be retrieved like this.
-				robot_position_world = (point.point.x, point.point.y)
-				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_data.resolution)
 
+				# The (x, y) position of the robot in the world
+				robot_position_world = (point.point.x, point.point.y)
+
+				# Convert the robot's position to the map coordinate frame
 				self._robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
+
+				# Convert the map to a 2D numpy array
 				im = np.array(map.data).reshape(map.info.height, map.info.width)
-				im_thresh = convert_image_inflated_walls(im, 0.8, 0.2, robot_diagonal_length_in_pixels)
+
+				# Convert the map to a threshold image in the configuration space using
+				# the robot's diagonal length to ensure the robot can always safely
+				# rotate in place
+				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_data.resolution)
+				im_thresh = convert_map_to_configuration_space(im, 0.8, 0.2, robot_diagonal_length_in_pixels)
+
+				'''
+				Stale code that chose a goal point based on an information-theoretic
+				approach or a convolution-based geometric approach. Kept for reference.
 
 				# rospy.loginfo(f"finding points")
 				# points = find_all_possible_goals(im_thresh, map_data)
@@ -80,11 +104,13 @@ class StudentController(RobotController):
 				# # best_point = find_furthest_point(points, self._robot_position)
 				# best_point = find_closest_point(points, self._robot_position, map.info)
 				# # best_point = find_highest_concentration_point(points, im, map.info)
-				# rospy.loginfo(f"best_point was {best_point}")
-				# path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
+				# path = a_star(im_thresh, self._robot_position, best_point, map_data)
+				'''
 
+				# Select the goal point using a BFS-based geometric approach
 				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
 
+				# If no goal point is found, we are done and save the map as an image
 				if best_point is None:
 					rospy.logerr(f"Finished in {rospy.get_time()} seconds.")
 					if save_map_as_image(im):
@@ -93,10 +119,16 @@ class StudentController(RobotController):
 						rospy.logerr(f"Failed to save map as image.")
 					self._shutdown_all_nodes()
 
-				path = dijkstra(im_thresh, self._robot_position, best_point, map_data)
+				# Generate a path to the goal point
+				path = a_star(im_thresh, self._robot_position, best_point, map_data)
 
-				waypoints = find_waypoints(im_thresh, path)
+				# Chop the path into waypoints
+				waypoints = generate_waypoints(im_thresh, path)
 				self.set_waypoints(waypoints)
+
+				# Update time since we last made progress, again
+				# We need this because generating a goal point takes time and we don't
+				# want to generate a goal while we generating the previous one
 				self._time_since_progress = time.time()
 		except Exception as e:
 			import traceback
@@ -117,16 +149,6 @@ if __name__ == '__main__':
 
 	# Start the controller.
 	controller = StudentController()
-
-	# This will move the robot to a set of fixed waypoints.  You should not do this, since you don't know
-	# if you can get to all of these points without building a map first.  This is just to demonstrate how
-	# to call the function, and make the robot move as an example.
-	#robot_start_loc = controller.get_robot_starting_loc()
-	#rospy.loginfo(f"STARTING LOC: {robot_start_loc}")
-	#im, im_thresh = open_image("/home/smartw/ros_ws/src/stage_osu/config/simple_rooms.png")
-	#waypoints = generate_waypoints(im, im_thresh, robot_start_loc)
-
-	#controller.set_waypoints(((-4,-3),(-4,0),(5,0)))
 
 	# Once you call this function, control is given over to the controller, and the robot will start to
 	# move.  This function will never return, so any code below it in the file will not be executed.
