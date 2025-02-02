@@ -18,6 +18,7 @@ import actionlib
 import tf
 
 from lab2.msg import NavTargetAction, NavTargetResult, NavTargetFeedback
+from math import pi
 
 class Driver:
 	def __init__(self, position_source, threshold=0.1):
@@ -75,6 +76,9 @@ class Driver:
 	def rotate_90_right(self):
 		if self._rotate_count == 0:
 			self._rotate_count = -9
+
+	def _get_rotate_count(self, angle):
+		return round(angle / (2 * pi) * 39)
 
 	# Respond to the action request.
 	def _action_callback(self, goal):
