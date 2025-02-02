@@ -92,7 +92,7 @@ class StudentDriver(Driver):
 			if abs(target_angle) > pi / 2:
 				if self._rotate_count == 0:
 					rospy.loginfo('Rotating to face goal')
-					self._rotate_count += self._get_rotate_count(target_angle) * np.sign(target_angle)
+					self._rotate_count += self._get_rotate_count(target_angle)
 					return command
 
 			# Set the linear and angular velocity to a linear scale of the distance and
@@ -132,7 +132,7 @@ class StudentDriver(Driver):
 			if len(safe_cones_idx) == 0:
 				if self._rotate_count == 0:
 					rospy.loginfo('Rotating to face free space')
-					self._rotate_count += self._get_rotate_count(target_angle) * np.sign(target_angle)
+					self._rotate_count += self._get_rotate_count(target_angle)
 				return command
 
 			# If there is a safe cone, we want to move in the direction of the cone that
