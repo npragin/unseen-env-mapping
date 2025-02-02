@@ -35,7 +35,8 @@ class StudentDriver(Driver):
 			lidar (LaserScan): A LaserScan containing the new lidar data.
 
 		Returns:
-			bool: True if the robot is close enough to the waypoint, False otherwise.
+			bool: True if the robot is close enough to the waypoint to consider it
+				  reached, False otherwise.
 		"""
 		# NOTE: The height and and width should be halved to determine if the goal is beneath the robot
 		if abs(target[0]) <= self._robot_length and abs(target[1]) <= self._robot_width:

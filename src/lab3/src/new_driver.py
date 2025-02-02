@@ -212,12 +212,29 @@ class Driver:
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		"""
 		This is an abstract method that will be overridden by student_driver
+
+		Parameters:
+			distance (float): Distance to the target.
+			target (tuple): A tuple (x, y) representing the distance to the target.
+			lidar (LaserScan): A LaserScan containing the new lidar data.
+
+		Returns:
+			bool: True if the robot is close enough to the waypoint to consider it
+				  reached, False otherwise.
 		"""
 		raise NotImplemented('close_enough_to_waypoint() not implemented')
 
 	def get_twist(self, target, lidar):
 		"""
 		This is an abstract method that will be overridden by student_driver
+
+		Parameters:
+			target (tuple): The current target point, in the coordinate frame of the robot (base_link) as
+							an (x, y) tuple.
+			lidar (LidarScan): A LaserScan containing the new lidar data.
+
+		Returns:
+			A Twist message, containing the commanded robot velocities.
 		"""
 		raise NotImplemented('get_twist() not implemented')
 
