@@ -8,11 +8,9 @@ from math import sqrt, pi
 import time
 import numpy as np
 
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import LaserScan
-from tf.transformations import euler_from_quaternion
 
 import actionlib
 import tf
