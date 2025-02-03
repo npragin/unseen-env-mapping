@@ -49,7 +49,7 @@ def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_po
     # Used to double check that the is_xxx routines work correctly
     for i in range(0, im_threshhold.shape[1]-1, 10):
         for j in range(0, im_threshhold.shape[0]-1, 2):
-            if is_reachable(im_thresh, (i, j)):
+            if path_planning.has_free_neighbor(im_thresh, (i, j)):
                 axs[1].plot(i, j, '.b')
     """
 
@@ -102,24 +102,6 @@ def convert_x_y_to_pix(im_size, x_y, size_pix):
     return pix
 
 
-def is_reachable(im, pix):
-    """ Is the pixel reachable, i.e., has a neighbor that is free?
-    Used for
-    @param im - the image
-    @param pix - the pixel i,j"""
-
-    # Returns True (the pixel is adjacent to a pixel that is free)
-    #  False otherwise
-    # You can use four or eight connected - eight will return more points
-    # YOUR CODE HERE
-    #print(pix)
-    neighbors = path_planning.get_free_neighbors(im, pix)
-    if not neighbors:
-        return False
-    else:
-        return True
-
-
 def find_all_possible_goals(im, map_data):
     """ Find all of the places where you have a pixel that is unseen next to a pixel that is free
     It is probably easier to do this, THEN cull it down to some reasonable places to try
@@ -161,8 +143,8 @@ def find_all_possible_goals(im, map_data):
     #print(valid_points_swapped)
 
     # Filter points to include only reachable ones
-    reachable_points = [point for point in valid_points_swapped if is_reachable(im, point)]
-    #mask = is_reachable(im, valid_points_swapped)
+    reachable_points = [point for point in valid_points_swapped if path_planning.has_free_neighbor(im, point)]
+    #mask = path_planning.has_free_neighbor(im, valid_points_swapped)
     #reachable_points = valid_points_swapped[mask]
     # Return as set of tuples (row, column format)
     return set(map(tuple, reachable_points))
@@ -230,6 +212,7 @@ def new_find_best_point(map, map_data, robot_loc):
         if curr_node_closed:
             continue
 
+        # TODO: Use a neighbor helper function from path_planning.py
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
                 if di == 0 and dj == 0:
@@ -379,27 +362,3 @@ def generate_waypoints(im, path):
     waypoints.append(path[-1])
 
     return waypoints
-
-
-if __name__ == '__main__':
-    # Doing this here because it is a different yaml than JN
-    import yaml_1 as yaml
-
-    im, im_thresh = path_planning.open_image("map.pgm")
-
-    robot_start_loc = (1940, 1953)
-
-    all_unseen = find_all_possible_goals(im_thresh)
-    best_unseen = find_best_point(im_thresh, all_unseen, robot_loc=robot_start_loc)
-
-    plot_with_explore_points(im_thresh, zoom=0.1, robot_loc=robot_start_loc, explore_points=all_unseen, best_pt=best_unseen)
-
-    path = path_planning.a_star(im_thresh, robot_start_loc, best_unseen, 50)
-    waypoints = generate_waypoints(im_thresh, path)
-    path_planning.plot_with_path(im, im_thresh, zoom=0.1, robot_loc=robot_start_loc, goal_loc=best_unseen, path=waypoints)
-
-    # Depending on if your mac, windows, linux, and if interactive is true, you may need to call this to get the plt
-    # windows to show
-    # plt.show()
-
-    print("Done")
