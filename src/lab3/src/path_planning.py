@@ -327,6 +327,7 @@ def a_star(im, robot_loc, goal_loc, map_data):
         #  Step 3: Set the node to closed
         visited[node_ij] = (visited_distance, visited_parent, True)
 
+        # TODO: Use a neighbor helper function
         for di in [-1, 0, 1]:
             for dj in [-1, 0, 1]:
                 # Don't do anything for the case where we don't move
