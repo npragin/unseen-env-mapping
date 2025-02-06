@@ -312,13 +312,12 @@ def generate_alternate_goal(visited_points, goal_loc):
     Returns the point in the visited_points list closest to the goal_loc.
 
     Parameters:
-        visited_points (list of tuples): (x, y) pairs that were reachable
+        visited_points (numpy.ndarray): (x, y) pairs that were reachable
         goal_loc: (x, y) of the goal that was found to be unreachable
 
     Returns:
         tuple: (x, y) of the point closest to the goal_loc
     """
-    visited_points = np.array(visited_points)
     distances = np.linalg.norm(visited_points - goal_loc, axis=1)
 
     return tuple(visited_points[np.argmin(distances)])
@@ -408,7 +407,7 @@ def a_star(im, robot_loc, goal_loc, map_data):
     # If we can't path to the goal, path as close to the goal as possible
     if not goal_loc in visited:
         old_goal_loc = goal_loc
-        visited_points = list(visited.keys())
+        visited_points = np.array(list(visited.keys()))
 
         goal_loc = generate_alternate_goal(visited_points, goal_loc)
         
