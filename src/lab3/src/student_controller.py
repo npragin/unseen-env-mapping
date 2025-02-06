@@ -67,7 +67,7 @@ class StudentController(RobotController):
 		Parameters:
 			point (PointStamped):	The position of the robot, in the world coordinate frame.
 			map (OccupancyGrid):	The current version of the map.
-			map_data (MapMetaData):	The current map meta data.
+			map_data (MapMetaData):	The current map metadata.
 		'''
 		rospy.loginfo('Got a map update.')
 

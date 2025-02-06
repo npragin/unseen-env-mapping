@@ -8,7 +8,7 @@ import cv2
 from helpers import save_map_as_debug_image
 
 
-# ------------------ Showing start and end and path ------------------
+# ------------------ Plotting path, robot, and goal location ------------------
 def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, path=None):
     """
     Plot the map plus, optionally, the robot location and goal location and proposed path
@@ -306,25 +306,66 @@ def has_free_neighbor(im, loc):
     return False
 
 
+# ----------------------- A* Path Helpers ------------------------
+def generate_alternate_goal(visited_points, goal_loc):
+    """
+    Returns the point in the visited_points list closest to the goal_loc.
+
+    Parameters:
+        visited_points (list of tuples): (x, y) pairs that were reachable
+        goal_loc: (x, y) of the goal that was found to be unreachable
+
+    Returns:
+        tuple: (x, y) of the point closest to the goal_loc
+    """
+    visited_points = np.array(visited_points)
+    distances = np.linalg.norm(visited_points - goal_loc, axis=1)
+
+    return tuple(visited_points[np.argmin(distances)])
+
+def reconstruct_path(visited, goal_loc, map_data):
+    """
+    Given the visited data structure, a goal location, and map metadata, returns a path
+    from the robot's location to the goal.
+
+    Parameters:
+        visited (dict): A dictionary of (x, y) pairs mapped to (_, parent_node, _), where
+                        the robot's starting location has a parent of None
+        goal_loc (tuple): (x, y) pair representing the goal location
+        map_data (MapMetadata): The current map metadata
+    """
+    path = []
+    current = goal_loc
+    while current is not None:
+        # Convert point from map space to free space
+        current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
+        current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
+
+        path.append((current_x_in_space, current_y_in_space))
+        current = visited[current][1]
+
+    # We construct the path from the goal to the robot, but need the reverse
+    path.reverse()
+
+    return path
+
 def a_star(im, robot_loc, goal_loc, map_data):
     """
-    TODO: Docstring
-    Expects goal_loc to be an unknown space, paths without the free space assumption, so we will path to the nearest known free space
+    Use A* to find the shortest path from the robot's location to the goal location.
+    If the goal location is not adjacent to free space, the goal location will be
+    adjusted to the closest point in free space to the goal location. All parameters
+    and return values are expected to be in the map space.
 
-    Occupancy grid image, with robot and goal loc as pixels
-    @param im - the thresholded image - use is_free(i, j) to determine if in reachable node
-    @param robot_loc - where the robot is (tuple, i,j)
-    @param goal_loc - where to go to (tuple, i,j)
-    @returns a list of tuples
+    Parameters:
+        im (numpy.ndarray): A thresholded image in the configuration space of the robot
+        robot_loc (tuple): The location of the robot as (x, y) coordinates
+        goal_loc (tuple): The target location as (x, y) coordinates
+        map_data (MapMetadata): The current map metadata
+    Returns:
+        list: A list of tuples representing the path from the robot's location to the
+              goal location
     """
-
     rospy.loginfo("Starting A*")
-
-    # TODO: Replace all use of free_areas with not is_wall
-    free_areas = im != 0
-
-    goal_loc = (goal_loc[0], goal_loc[1])
-    process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
 
     # Initialize data structures for A*
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
@@ -353,20 +394,7 @@ def a_star(im, robot_loc, goal_loc, map_data):
         # Close this node
         visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
-        # NOTE: Should we replace this with get_free_neighbors_with_cost?
-        for neighbor, neighbor_cost in get_neighbors_with_cost(im, curr_node):
-
-                # Check if neighbor in direction (di, dj) is valid and free
-                if not is_free(im, (neighbor)):
-                    continue
-
-                if not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes:
-                    continue
-
-                if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
-                    rospy.logerr("We were processing bad nodes, but no longer!")
-                    process_bad_nodes = False
-
+        for neighbor, neighbor_cost in get_free_neighbors_with_cost(im, curr_node):
                 # Calculate distance from robot and estimated distance to goal
                 distance = curr_node_distance + neighbor_cost
                 heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
@@ -380,31 +408,15 @@ def a_star(im, robot_loc, goal_loc, map_data):
     # If we can't path to the goal, path as close to the goal as possible
     if not goal_loc in visited:
         old_goal_loc = goal_loc
+        visited_points = list(visited.keys())
 
-        # Get distances from considered points to the goal (Euclidean)
-        visited_points = np.array(list(visited.keys()))
-        distances = np.linalg.norm(visited_points - goal_loc, axis=1)
-
-        # Set the goal to be the closest point to the original goal
-        goal_loc = (visited_points[np.argmin(distances)][0], visited_points[np.argmin(distances)][1])
-
-        rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead.")
+        goal_loc = generate_alternate_goal(visited_points, goal_loc)
+        
         save_map_as_debug_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
-
+        rospy.logerr(f"Goal {old_goal_loc} was unreachable; routing to {goal_loc} instead.")
 
     # Reconstruct the path to the goal using the parent nodes stored in visited
-    path = []
-    current = tuple(goal_loc)
-    while current is not None:
-        # Convert point from map space to free space
-        current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
-        current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
-
-        path.append((current_x_in_space, current_y_in_space))
-        current = visited[current][1]
-
-    # We construct the path from the goal to the robot, but need the reverse
-    path.reverse()
+    path = reconstruct_path(visited, goal_loc, map_data)
 
     return path
 
