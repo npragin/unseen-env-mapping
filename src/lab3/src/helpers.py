@@ -44,7 +44,7 @@ def save_map_as_debug_image(filename, map, points, green_star=None, yellow_star=
     ax.invert_yaxis()
     plt.colorbar()
     plt.savefig(os.path.expanduser(f"~/ros_ws/src/lab3/images/{filename}.png"))
-    rospy.logerr(f"Saved visited points visualization as {filename}")
+    rospy.logerr(f"Saved debug image as {filename}")
 
 def save_map_as_image(map):
     from path_planning import convert_image
