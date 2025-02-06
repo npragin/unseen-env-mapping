@@ -253,6 +253,33 @@ def get_free_neighbors(im, loc):
 
     return [n for n in neighbors if 0 <= n[1] < im.shape[0] and 0 <= n[0] < im.shape[1] and is_free(im, n)]
 
+def get_free_neighbors_with_cost(im, loc):
+    """
+    Returns a list of neighbors in free space for a given location in the image
+    with their cost to come
+
+    Parameters:
+        im (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        list: A list of tuples representing the neighbors as ((x, y), cost)
+    """
+    i, j = loc
+    root_2 = np.sqrt(2)
+    neighbors = [
+        ((i-1, j), 1),
+        ((i+1, j), 1),
+        ((i, j-1), 1),
+        ((i, j+1), 1),
+        ((i-1, j-1), root_2),
+        ((i-1, j+1), root_2),
+        ((i+1, j-1), root_2),
+        ((i+1, j+1), root_2)
+    ]
+
+    return [n for n in neighbors if 0 <= n[0][1] < im.shape[0] and 0 <= n[0][0] < im.shape[1] and is_free(im, n[0])]
+
 def has_free_neighbor(im, loc):
     """
     Returns a boolean indicating if a location in the image has a free neighbor
@@ -280,20 +307,26 @@ def has_free_neighbor(im, loc):
 
 
 def a_star(im, robot_loc, goal_loc, map_data):
-    """ Occupancy grid image, with robot and goal loc as pixels
+    """
+    TODO: Docstring
+    Expects goal_loc to be an unknown space, paths without the free space assumption, so we will path to the nearest known free space
+
+    Occupancy grid image, with robot and goal loc as pixels
     @param im - the thresholded image - use is_free(i, j) to determine if in reachable node
     @param robot_loc - where the robot is (tuple, i,j)
     @param goal_loc - where to go to (tuple, i,j)
-    @returns a list of tuples"""
+    @returns a list of tuples
+    """
 
-    rospy.loginfo("Starting dijkstras")
+    rospy.loginfo("Starting A*")
 
+    # TODO: Replace all use of free_areas with not is_wall
     free_areas = im != 0
 
     goal_loc = (goal_loc[0], goal_loc[1])
     process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
 
-    # Initialize data structures for Dijkstra
+    # Initialize data structures for A*
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     priority_queue = []
     heapq.heappush(priority_queue, (0, robot_loc))
@@ -302,39 +335,26 @@ def a_star(im, robot_loc, goal_loc, map_data):
 
     # While the list is not empty - use a break for if the node is the end node
     while priority_queue:
-        current_node = heapq.heappop(priority_queue)
-        # Pop returns the value and the i, j
-        node_score = current_node[0]
-        node_ij = current_node[1]
+        curr_node = heapq.heappop(priority_queue)[1]
 
         # Showing how to get this data back out of visited
-        visited_triplet = visited[node_ij]
-        visited_distance = visited_triplet[0]
-        visited_parent = visited_triplet[1]
-        visited_closed_yn = visited_triplet[2]
+        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
 
-        #  Step 1: Break out of the loop if node_ij is the goal node
-        # NOTE: This seems inefficient, what if we allowed ourselves to process the goal and just returned its parent?
-        if goal_loc in get_neighbors(im, node_ij):
-            # We don't want to park on the goal, it might not be a safe area
-            goal_loc = node_ij
-            break
-
-        #  Step 2: If this node is closed, skip it
-        if visited_closed_yn:
+        # If this node is closed, skip it
+        if curr_node_closed:
             continue
 
-        #  Step 3: Set the node to closed
-        visited[node_ij] = (visited_distance, visited_parent, True)
+        # If we found the goal, stop
+        if goal_loc in get_neighbors(im, curr_node):
+            # We don't want to park on the goal, it might not be a safe area
+            goal_loc = curr_node
+            break
 
-        # TODO: Use a neighbor helper function
-        for di in [-1, 0, 1]:
-            for dj in [-1, 0, 1]:
-                # Don't do anything for the case where we don't move
-                if di == 0 and dj == 0:
-                    continue
+        # Close this node
+        visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
-                neighbor = (node_ij[0] + di, node_ij[1] + dj)
+        # NOTE: Should we replace this with get_free_neighbors_with_cost?
+        for neighbor, neighbor_cost in get_neighbors_with_cost(im, curr_node):
 
                 # Check if neighbor in direction (di, dj) is valid and free
                 if not is_free(im, (neighbor)):
@@ -347,32 +367,44 @@ def a_star(im, robot_loc, goal_loc, map_data):
                     rospy.logerr("We were processing bad nodes, but no longer!")
                     process_bad_nodes = False
 
-                # Calculate distance to neighbor and distance to goal and add them to existing cost
-                distance = np.linalg.norm((di, dj)) + visited_distance
+                # Calculate distance from robot and estimated distance to goal
+                distance = curr_node_distance + neighbor_cost
                 heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
 
                 # If we haven't tried this path add it to the queue
                 if neighbor not in visited or distance < visited[neighbor][0]:
-                    visited[neighbor] = (distance, node_ij, False)
+                    visited[neighbor] = (distance, curr_node, False)
                     heapq.heappush(priority_queue, (distance + heuristic, neighbor))
 
-    # If we couldn't path to the goal, path to the closest point to the goal we can
+
+    # If we can't path to the goal, path as close to the goal as possible
     if not goal_loc in visited:
         old_goal_loc = goal_loc
+
+        # Get distances from considered points to the goal (Euclidean)
         visited_points = np.array(list(visited.keys()))
         distances = np.linalg.norm(visited_points - goal_loc, axis=1)
+
+        # Set the goal to be the closest point to the original goal
         goal_loc = (visited_points[np.argmin(distances)][0], visited_points[np.argmin(distances)][1])
+
         rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead.")
         save_map_as_debug_image("visited_points", im, visited_points, old_goal_loc, robot_loc)
 
+
+    # Reconstruct the path to the goal using the parent nodes stored in visited
     path = []
     current = tuple(goal_loc)
-    # Reconstruct the path using the parent nodes stored in the visited dictionary
     while current is not None:
+        # Convert point from map space to free space
         current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
         current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
-        path.insert(0, (current_x_in_space, current_y_in_space))
+
+        path.append((current_x_in_space, current_y_in_space))
         current = visited[current][1]
+
+    # We construct the path from the goal to the robot, but need the reverse
+    path.reverse()
 
     return path
 
