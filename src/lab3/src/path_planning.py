@@ -428,8 +428,8 @@ def multi_goal_a_star(im, robot_loc, goals):
     Use A* to get the distance to a set of points from the robot's location. This
     function is intended to be used for state updation, or when you want to maintain the
     distances of points to the robot's location. All parameters and return values are
-    expected to be in the map space. Note, unreachable goal points will be discarded from
-    the return value.
+    expected to be in the map space. Unreachable goal points will be discarded from the
+    return value.
 
     Parameters:
         im (numpy.ndarray): A thresholded image in the configuration space of the robot
