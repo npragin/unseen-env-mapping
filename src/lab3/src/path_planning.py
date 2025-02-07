@@ -367,22 +367,22 @@ def a_star(im, robot_loc, goal_loc, map_data):
     rospy.loginfo("Starting A*")
 
     # Initialize data structures for A*
-    # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
+    # visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     priority_queue = []
     heapq.heappush(priority_queue, (0, robot_loc))
     visited = {robot_loc: (0, None, False)}
 
     # While the list is not empty - use a break for if the node is the end node
     while priority_queue:
-        curr_node = heapq.heappop(priority_queue)[1]
-
-        # Showing how to get this data back out of visited
+        _, curr_node = heapq.heappop(priority_queue)
         curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
 
         # If this node is closed, skip it
         if curr_node_closed:
             continue
 
+        # NOTE: After refactoring new_find_best_point to select known free space as the
+        # goal, we can change this for a direct comparison between goal_loc and curr_node
         # If we found the goal, stop
         if goal_loc in get_neighbors(im, curr_node):
             # We don't want to park on the goal, it might not be a safe area
@@ -394,12 +394,16 @@ def a_star(im, robot_loc, goal_loc, map_data):
 
         # We use get_free_neighbors, so we don't have to check if nodes are obstacles
         for neighbor, neighbor_cost in get_free_neighbors_with_cost(im, curr_node):
-                # Calculate distance from robot and estimated distance to goal
+                # If a neighbor is closed, skip it
+                if visited.get(neighbor, (0, None, False))[1]:
+                    continue
+                
+                # Calculate distance from robot
                 distance = curr_node_distance + neighbor_cost
-                heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
 
-                # If we haven't tried this path add it to the queue
+                # If we haven't visited this neighbor or found a shorter route to it, update it
                 if neighbor not in visited or distance < visited[neighbor][0]:
+                    heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
                     visited[neighbor] = (distance, curr_node, False)
                     heapq.heappush(priority_queue, (distance + heuristic, neighbor))
 
@@ -419,116 +423,75 @@ def a_star(im, robot_loc, goal_loc, map_data):
 
     return path
 
-def old_multi_goal_astar(im, robot_loc, goals):
-    """ Occupancy grid image, with robot and goal loc as pixels
-    @param im - the thresholded image
-    @param robot_loc - where the robot is (tuple, i,j)
-    @param goals - list of goals (tuple, i,j)
-    @returns a dictionary of distances to each goal"""
-    
-    free_areas = im != 0
-    process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
+def multi_goal_a_star(im, robot_loc, goals):
+    """
+    Use A* to get the distance to a set of points from the robot's location. This
+    function is intended to be used for state updation, or when you want to maintain the
+    distances of points to the robot's location. All parameters and return values are
+    expected to be in the map space. Note, unreachable goal points will be discarded from
+    the return value.
 
+    Parameters:
+        im (numpy.ndarray): A thresholded image in the configuration space of the robot
+        robot_loc (tuple): The location of the robot as (x, y) coordinates
+        goals (set): A set of (x, y) pairs representing target locations
 
-    open_set = [(0, robot_loc)]  # (f_score, node)
-    closed_set = set()
-    came_from = {goal: {} for goal in goals}
-    g_score = {robot_loc: 0}
-    path_distances = {}
-    remaining_goals = set(goals)
-    
-    
-    while open_set and remaining_goals:
-        current_f, current = heapq.heappop(open_set)
-
-        # Check if this is a goal node we haven't found yet
-        if current in remaining_goals:
-            path_distances[current] = g_score[current]
-        
-            remaining_goals.remove(current)
-
-            if len(remaining_goals) == 0:
-                break
-
-        if current in closed_set:
-            continue
-
-        closed_set.add(current)
-
-        for neighbor, cost in get_neighbors_with_cost(im, current):
-            if neighbor in closed_set:
-                continue
-
-            if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not has_free_neighbor(im, neighbor):
-                continue
-
-            if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
-                process_bad_nodes = False
-
-            tentative_g = g_score[current] + cost
-
-            if neighbor not in g_score or tentative_g < g_score[neighbor]:
-                # Found a better path to this neighbor
-                for goal in remaining_goals:
-                    came_from[goal][neighbor] = current
-                g_score[neighbor] = tentative_g
-                
-                # Use minimum f_score to any remaining goal
-                min_heuristic = min(np.linalg.norm((neighbor[0] - goal[0], neighbor[1] - goal[1])) 
-                          for goal in remaining_goals)
-                f_score = tentative_g + min_heuristic
-                heapq.heappush(open_set, (f_score, neighbor))
-    
-    return path_distances
-
-def multi_goal_astar(im, robot_loc, goals):
-    """ Occupancy grid image, with robot and goal loc as pixels
-    @param im - the thresholded image
-    @param robot_loc - where the robot is (tuple, i,j)
-    @param goals - list of goals (tuple, i,j)
-    @returns a dictionary of distances to each goal"""
-
+    Returns:
+        dict: A mapping of (x, y) pairs to distances from the robot location. Goals that
+              require traveling through obstacles to reach will be discarded.
+    """
+    # Initialize data structures for multi-goal A*
+    # visited stores (distance from robot, is node closed)
+    # goal_distances maps goals to their distance from the robot
     priority_queue = [(0, robot_loc)]
     visited = {robot_loc: (0, False)}
-    remaining_goals = np.array(goals)
+    remaining_goals = np.array(list(goals))
     goal_distances = {}
     
-    while priority_queue and remaining_goals:
+    while priority_queue and len(remaining_goals):
         _, curr_node = heapq.heappop(priority_queue)
         curr_node_distance, curr_node_closed = visited[curr_node]
 
+        # If this node is closed, skip it
         if curr_node_closed:
             continue
 
         # Check if this is a goal node we haven't found yet
-        if curr_node in remaining_goals:
+        if np.any(np.all(remaining_goals == curr_node, axis=1)):
+            # Store distance from the robot to the goal
             goal_distances[curr_node] = curr_node_distance
-            remaining_goals.remove(curr_node)
+
+            # Remove curr_node while maintaining shape of remaining_goals
+            mask = ~np.all(remaining_goals == curr_node, axis=1)
+            remaining_goals = remaining_goals[mask]
 
             if len(remaining_goals) == 0:
                 break
 
+        # Close this node
         visited[curr_node] = (curr_node_distance, True)
 
+        # NOTE: When we change exploring.py to select known free space as goal and we do the thing where we don't process neighbors of rejected goals,
+        #       we should be able to change this to not is_free instead because points in unknown space won't make it in the PQ
+        # We use get_neighbors because there is a chance for a goal to be in unseen space
         for neighbor, neighbor_cost in get_neighbors_with_cost(im, curr_node):
-            # If neighbor is closed, skip it
-            # TODO: Test performance with and without this clause to determine whether or not we should keep this
-            # If keeping it has better performance consider adding it to A* after performing the test agian
+            # If a neighbor is closed, skip it
             if visited.get(neighbor, (0, False))[1]:
                 continue
 
+            # Skip obstacles since we can't pass through them
             if is_wall(im, neighbor):
                 continue
 
+            # Calculate distance from robot
             distance = curr_node_distance + neighbor_cost
 
+            # If we haven't visited this neighbor or found a shorter route to it, update it
             if neighbor not in visited or distance < visited[neighbor][0]:
-                # Found a better path to this neighbor, update distance
                 visited[neighbor] = (distance, False)
-                
+
                 # Use minimum distance to any remaining goal as heuristic
                 heuristic = min(np.linalg.norm(remaining_goals - neighbor, axis=1))
-        
                 heapq.heappush(priority_queue, (distance + heuristic, neighbor))
     
     return goal_distances
