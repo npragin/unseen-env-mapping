@@ -283,22 +283,19 @@ def find_closest_point(possible_points, robot_loc, map_data):
 
 def find_furthest_point(possible_points, robot_loc):
     """
-    Pick the furthest point to go to.
+    Returns the point from a list of candidate points closest to the robot's location.
 
-    @param possible_points: possible points to choose from
-    @param robot_loc: location of the robot (x, y)
+    Parameters:
+        possible_points (list): List of (x, y) pairs of candidate points
+        robot_loc (tuple): (x, y) pair representing the robot's current position
+
+    Returns:
+        tuple: (x, y) pair of the closest point to the robot's location
     """
-    max_distance = -float('inf')  # Start with the smallest possible value
-    furthest_point = None
-    i, j = robot_loc
 
-    for x, y in possible_points:
-        distance = np.sqrt((i - x)**2 + (j - y)**2)  # Calculate Euclidean distance
-        if distance > max_distance:  # Compare with max_distance
-            max_distance = distance
-            furthest_point = (x, y)
-
-    return furthest_point
+    distances = np.linalg.norm(np.array(possible_points) - robot_loc, axis=1)
+    furthest_idx = np.argmax(distances)
+    return possible_points[furthest_idx]
 
 def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
     radius_pixels = 10 #int(radius / map_data.resolution)
