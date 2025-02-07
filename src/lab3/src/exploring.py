@@ -193,8 +193,8 @@ def new_find_best_point(map, map_data, robot_loc):
 
     # Updating distance from robot for all points in priority queue
     if len(priority_queue) > 0:
-        points = set(p[1] for p in priority_queue if not visited[p[1]][2])
-        distances = path_planning.multi_goal_astar(map, robot_loc, points)
+        points = set(p[1] for p in priority_queue if not visited[p[1]][2] and not path_planning.is_wall(map, p[1]))
+        distances = path_planning.multi_goal_a_star(map, robot_loc, points)
         priority_queue = [(distance, point) for point, distance in distances.items()]
         heapq.heapify(priority_queue)
 
