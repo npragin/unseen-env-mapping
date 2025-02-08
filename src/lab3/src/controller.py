@@ -169,9 +169,11 @@ class RobotController:
 	def set_waypoints(self, points):
 		'''
 		This function replaces the existing waypoints with the new list of points provided.
+		The list of points is expected to be in the map space.
 
 		Parameters:
-			points (Iterable): An iterable of (x, y) tuples representing the new waypoints.
+			points (Iterable): An iterable of (x, y) tuples representing the new waypoints
+							   in the map space.
 		'''
 		self.action_client.cancel_goal()
 

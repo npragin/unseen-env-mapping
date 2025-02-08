@@ -11,15 +11,15 @@ from helpers import save_map_as_debug_image
 # ------------------ Plotting path, robot, and goal location ------------------
 def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, path=None):
     """
-    Plot the map plus, optionally, the robot location and goal location and proposed path
+    Plot the map and, optionally, the robot location, goal location, and proposed path
 
     Parameters:
-        im (numpy.ndarray): The original image
-        im_threshhold (numpy.ndarray): The thresholded image
+        im (numpy.ndarray): The original image of the map
+        im_threshhold (numpy.ndarray): The thresholded image of the map
         zoom (float): The zoom level
-        robot_loc (tuple): The robot location as a tuple (x, y)
-        goal_loc (tuple): The goal location as a tuple (x, y)
-        path (list): A list of tuples representing the path
+        robot_loc (tuple): The robot location as an (x, y) pair
+        goal_loc (tuple): The goal location as an (x, y) pair
+        path (list): A list of tuples representing the path as (x, y) pairs
     """
 
     # Putting this in here to avoid messing up ROS
