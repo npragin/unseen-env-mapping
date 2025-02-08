@@ -1,41 +1,26 @@
 #!/usr/bin/env python3
 
-# This assignment lets you both define a strategy for picking the next point to explore and determine how you
-#  want to chop up a full path into way points. You'll need path_planning.py as well (for calculating the paths)
-#
-# Note that there isn't a "right" answer for either of these. This is (mostly) a light-weight way to check
-#  your code for obvious problems before trying it in ROS. It's set up to make it easy to download a map and
-#  try some robot starting/ending points
-#
-# Given to you:
-#   Image handling
-#   plotting
-#   Some structure for keeping/changing waypoints and converting to/from the map to the robot's coordinate space
-#
-# Slides
-
-# The ever-present numpy
+import rospy
 import numpy as np
 from scipy.ndimage import convolve
-
-# Your path planning code
-import path_planning as path_planning
-# Our priority queue
 import heapq
-
-# Using imageio to read in the image
-import rospy
-from helpers import world_to_map, save_map_as_debug_image
 from math import ceil
+import path_planning as path_planning
 
-# -------------- Showing start and end and path ---------------
+# ------------------ Plotting candidate exploration points, chosen point, and robot ------------------
 def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
-    """Show the map plus, optionally, the robot location and points marked as ones to explore/use as end-points
-    @param im - the image of the SLAM map
-    @param im_threshhold - the image of the SLAM map
-    @param robot_loc - the location of the robot in pixel coordinates
-    @param best_pt - The best explore point (tuple, i,j)
-    @param explore_points - the proposed places to explore, as a list"""
+    """
+    Plot the map plus, optionally, the robot location, candidate points for exploration,
+    and the chosen point for exploration.
+
+    Parameters:
+        im_threshhold (numpy.ndarray): The thresholded image of the map
+        zoom (float): The zoom level
+        robot_loc (tuple): The robot location as an (x, y) pair
+        explore_points (list): A list of tuples representing candidate exploration points
+                               as (x, y) pairs
+        best_pt (tuple): The chosen exploration point as an (x, y) pair
+    """
 
     # Putting this in here to avoid messing up ROS
     import matplotlib.pyplot as plt
@@ -73,100 +58,42 @@ def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_po
         axs[i].set_xlim(width / 2 - zoom * width / 2, width / 2 + zoom * width / 2)
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
+# ------------------------------------ Exploration point selection ------------------------------------
+def find_frontier_points(im):
+    """
+    Given a thresholded image of a map, this function returns a list of all frontier
+    points. A frontier point is a point in free space adjacent to unseen space.
+    
+    Parameters:
+        im (numpy.ndarray): The thresholded image of the map
+    
+    Returns:
+        numpy.ndarray: List of all frontier points in the map with a shape of (N, 2)
+                       where N is the number of frontier points.
+    """
 
-# -------------- For converting to the map and back ---------------
-def convert_pix_to_x_y(im_size, pix, size_pix):
-    """Convert a pixel location [0..W-1, 0..H-1] to a map location (see slides)
-    Note: Checks if pix is valid (in map)
-    @param im_size - width, height of image
-    @param pix - tuple with i, j in [0..W-1, 0..H-1]
-    @param size_pix - size of pixel in meters
-    @return x,y """
-    if not (0 <= pix[0] <= im_size[1]) or not (0 <= pix[1] <= im_size[0]):
-        raise ValueError(f"Pixel {pix} not in image, image size {im_size}")
+    # Create masks for unseen and free points
+    unseen_mask = (im == 128)
+    free_mask = (im == 255)
 
-    return [size_pix * pix[i] / im_size[1-i] for i in range(0, 2)]
-
-
-def convert_x_y_to_pix(im_size, x_y, size_pix):
-    """Convert a map location to a pixel location [0..W-1, 0..H-1] in the image/map
-    Note: Checks if x_y is valid (in map)
-    @param im_size - width, height of image
-    @param x_y - tuple with x,y in meters
-    @param size_pix - size of pixel in meters
-    @return i, j (integers) """
-    pix = [int(x_y[i] * im_size[1-i] / size_pix) for i in range(0, 2)]
-
-    if not (0 <= pix[0] <= im_size[1]) or not (0 <= pix[1] <= im_size[0]):
-        raise ValueError(f"Loc {x_y} not in image, image size {im_size}")
-    return pix
-
-
-def find_all_possible_goals(im, map_data):
-    """ Find all of the places where you have a pixel that is unseen next to a pixel that is free
-    It is probably easier to do this, THEN cull it down to some reasonable places to try
-    This is because of noise in the map - there may be some isolated pixels
-    @param im - thresholded image
-    @return dictionary or list or binary image of possible pixels"""
-
-    # YOUR CODE HERE
-
-    # Define masks for unseen and free pixels
-    unseen_mask = (im == 128)  # Replace with the actual value for "unseen" pixels
-    free_mask = (im == 255)  # Replace with the actual value for "free" pixels
-
-    # Define a convolution kernel to check for adjacent unseen pixels
-    kernel = np.array([[1, 1, 1],
+    # Create a kernel to check adjacent points
+    adjacency_kernel = np.array([[1, 1, 1],
                        [1, 0, 1],
                        [1, 1, 1]])
 
-    #print(f"unseen_mask shape: {unseen_mask.shape}")
-    #print(f"kernel shape: {kernel.shape}")
-    #print(f"map shape: {map.shape}")
-    #print(f"freemask shape: {free_mask.shape}")
+    # Get number of unseen neighbors by convolving the unseen_mask using adjacency kernel
+    unseen_neighbors = convolve(unseen_mask.astype(int), adjacency_kernel, mode="constant", cval=0)
 
-    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
-    robot_kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    # Identify points on the frontier by getting free points with unseen neighbors
+    frontier_points_mask = free_mask & (unseen_neighbors > 0)
 
-    unseen_or_blocked_areas = (im == 0)
-    convolve_result = convolve(unseen_or_blocked_areas, robot_kernel, mode='constant', cval=1)
-    free_areas = convolve_result == 0
-
-    # Identify unseen neighbors by convolving the unseen_mask
-    unseen_neighbors = convolve(unseen_mask.astype(int), kernel, mode="constant", cval=0)
-    # Find free pixels that are adjacent to unseen pixels
-    valid_points_mask = free_mask & (unseen_neighbors > 0) & free_areas
     # Get coordinates of valid points
-    valid_points = np.argwhere(valid_points_mask)
-    # Swap axes if needed
-    valid_points_swapped = [(y, x) for (x, y) in valid_points] #np.column_stack((valid_points[:,1], valid_points[:0]))
-    #print(valid_points_swapped)
+    frontier_points = np.argwhere(frontier_points_mask)
 
-    # Filter points to include only reachable ones
-    reachable_points = [point for point in valid_points_swapped if path_planning.has_free_neighbor(im, point)]
-    #mask = path_planning.has_free_neighbor(im, valid_points_swapped)
-    #reachable_points = valid_points_swapped[mask]
-    # Return as set of tuples (row, column format)
-    return set(map(tuple, reachable_points))
+    # Swap axes
+    frontier_points = frontier_points[:, ::-1]
 
-
-def find_best_point(possible_points, robot_loc):
-    """ Pick one of the unseen points to go to
-    @param im - thresholded image
-    @param possible_points - possible points to chose from
-    @param robot_loc - location of the robot (in case you want to factor that in)
-    """
-    # YOUR CODE HERE
-    min_distance = float('inf')
-    closest_point = None
-    i, j = robot_loc
-    for x, y in possible_points:
-        distance = np.sqrt((i - x)**2 + (j - y)**2)
-        if distance < min_distance:
-            min_distance = distance
-            closest_point = (x, y)
-
-    return closest_point
+    return frontier_points
 
 visited = {}
 priority_queue = []
