@@ -1,9 +1,9 @@
-def world_to_map(x, y, map_data):
-    grid_x = int((x - map_data.origin.position.x) / map_data.resolution)
-    grid_y = int((y - map_data.origin.position.y) / map_data.resolution)
+def world_to_map(x, y, map_metadata):
+    grid_x = int((x - map_metadata.origin.position.x) / map_metadata.resolution)
+    grid_y = int((y - map_metadata.origin.position.y) / map_metadata.resolution)
 
-    x_out_of_bounds = grid_x < 0 or grid_x >= map_data.width
-    y_out_of_bounds = grid_y < 0 or grid_y >= map_data.height
+    x_out_of_bounds = grid_x < 0 or grid_x >= map_metadata.width
+    y_out_of_bounds = grid_y < 0 or grid_y >= map_metadata.height
     out_of_bounds = x_out_of_bounds or y_out_of_bounds
 
     if out_of_bounds:
@@ -11,12 +11,12 @@ def world_to_map(x, y, map_data):
 
     return (grid_x, grid_y)
 
-def map_to_world(index, map_data):
-    grid_x = index % map_data.width
-    grid_y = index // map_data.width
+def map_to_world(index, map_metadata):
+    grid_x = index % map_metadata.width
+    grid_y = index // map_metadata.width
 
-    world_x = grid_x * map_data.resolution + map_data.origin.position.x
-    world_y = grid_y * map_data.resolution + map_data.origin.position.y
+    world_x = grid_x * map_metadata.resolution + map_metadata.origin.position.x
+    world_y = grid_y * map_metadata.resolution + map_metadata.origin.position.y
 
     return (world_x, world_y)
 
@@ -51,11 +51,11 @@ def save_map_as_image(map):
     import cv2
     import os
 
-    im = convert_image(map, 0.8, 0.2)
+    map_image = convert_image(map, 0.8, 0.2)
 
-    im = _trim_map_image(im)
+    trimmed_map_image = _trim_map_image(map_image)
 
-    return cv2.imwrite(os.path.expanduser("~/ros_ws/src/lab3/images/completed_map.png"), im)
+    return cv2.imwrite(os.path.expanduser("~/ros_ws/src/lab3/images/completed_map.png"), trimmed_map_image)
 
 def _trim_map_image(im):
     import numpy as np

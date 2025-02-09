@@ -8,64 +8,64 @@ from math import ceil
 import path_planning as path_planning
 
 # ------------------ Plotting candidate exploration points, chosen point, and robot ------------------
-def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_points=None, best_pt=None):
+def plot_with_explore_points(map, zoom=1.0, robot_loc=None, candidate_points=None, goal=None):
     """
     Plot the map plus, optionally, the robot location, candidate points for exploration,
     and the chosen point for exploration.
 
     Parameters:
-        im_threshhold (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): The thresholded image of the map
         zoom (float): The zoom level
         robot_loc (tuple): The robot location as an (x, y) pair
-        explore_points (list): A list of tuples representing candidate exploration points
-                               as (x, y) pairs
-        best_pt (tuple): The chosen exploration point as an (x, y) pair
+        candidate_points (list): A list of tuples representing candidate exploration
+                                 points as (x, y) pairs
+        goal (tuple): The goal as an (x, y) pair
     """
 
     # Putting this in here to avoid messing up ROS
     import matplotlib.pyplot as plt
 
     fig, axs = plt.subplots(1, 2)
-    axs[0].imshow(im_threshhold, origin='lower', cmap="gist_gray")
+    axs[0].imshow(map, origin='lower', cmap="gist_gray")
     axs[0].set_title("original image")
-    axs[1].imshow(im_threshhold, origin='lower', cmap="gist_gray")
+    axs[1].imshow(map, origin='lower', cmap="gist_gray")
     axs[1].set_title("threshold image")
     """
     # Used to double check that the is_xxx routines work correctly
     for i in range(0, im_threshhold.shape[1]-1, 10):
         for j in range(0, im_threshhold.shape[0]-1, 2):
-            if path_planning.has_free_neighbor(im_thresh, (i, j)):
+            if path_planning.has_free_neighbor(map, (i, j)):
                 axs[1].plot(i, j, '.b')
     """
 
     # Show original and thresholded image
-    if explore_points is not None:
-        for p in explore_points:
+    if candidate_points is not None:
+        for p in candidate_points:
             axs[1].plot(p[0], p[1], '.b', markersize=2)
 
     for i in range(0, 2):
         if robot_loc is not None:
             axs[i].plot(robot_loc[0], robot_loc[1], '+r', markersize=10)
-        if best_pt is not None:
-            axs[i].plot(best_pt[0], best_pt[1], '*y', markersize=10)
+        if goal is not None:
+            axs[i].plot(goal[0], goal[1], '*y', markersize=10)
         axs[i].axis('equal')
 
     for i in range(0, 2):
         # Implements a zoom - set zoom to 1.0 if no zoom
-        width = im_threshhold.shape[1]
-        height = im_threshhold.shape[0]
+        width = map.shape[1]
+        height = map.shape[0]
 
         axs[i].set_xlim(width / 2 - zoom * width / 2, width / 2 + zoom * width / 2)
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
 # --------------------------------------- Goal point selection ---------------------------------------
-def find_frontier_points(im):
+def find_frontier_points(map):
     """
     Given a thresholded image of a map, this function returns a list of all frontier
     points. A frontier point is a point in free space adjacent to unseen space.
     
     Parameters:
-        im (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): The thresholded image of the map
     
     Returns:
         numpy.ndarray: List of all frontier points in the map with a shape of (N, 2)
@@ -73,8 +73,8 @@ def find_frontier_points(im):
     """
 
     # Create masks for unseen and free points
-    unseen_mask = (im == 128)
-    free_mask = (im == 255)
+    unseen_mask = (map == 128)
+    free_mask = (map == 255)
 
     # Create a kernel to check adjacent points
     adjacency_kernel = np.array([[1, 1, 1],
@@ -98,13 +98,13 @@ def find_frontier_points(im):
 visited = {}
 priority_queue = []
 
-def new_find_best_point(map, map_data, robot_loc):
+def new_find_best_point(map, map_metadata, robot_loc):
     rospy.loginfo("Starting new_find_best_point")
 
     # Set the minimum distance from the robot to the goal
     # Using half the lidar range to balance information gain and scan overlap
     lidar_range_in_meters = 8
-    lidar_range_in_pixels = ceil(lidar_range_in_meters / map_data.resolution)
+    lidar_range_in_pixels = ceil(lidar_range_in_meters / map_metadata.resolution)
     distance_restriction = lidar_range_in_pixels / 2
 
     free_areas = map != 0
@@ -188,8 +188,8 @@ def new_find_best_point(map, map_data, robot_loc):
     path = []
     current = nearest
     while current:
-        current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
-        current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
+        current_x_in_space = current[0] * map_metadata.resolution + map_metadata.origin.position.x
+        current_y_in_space = current[1] * map_metadata.resolution + map_metadata.origin.position.y
         path.append((current_x_in_space, current_y_in_space))
         current = visited[current][1]
 
@@ -232,7 +232,7 @@ def find_furthest_point(candidate_points, robot_loc):
     furthest_idx = np.argmax(distances)
     return candidate_points[furthest_idx]
 
-def find_highest_information_gain_point(candidate_points, im, radius):
+def find_highest_information_gain_point(candidate_points, map, radius):
     """
     Returns the point from a list of candidates that has the highest concentration of
     unexplored pixels within a given radius.
@@ -241,7 +241,7 @@ def find_highest_information_gain_point(candidate_points, im, radius):
 
     Parameters:
         candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
-        im (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): The thresholded image of the map
         radius (int): Radius in pixels to check for unseen points around each candidate
                       point
 
@@ -250,7 +250,7 @@ def find_highest_information_gain_point(candidate_points, im, radius):
                within its radius
     """
     # Create mask of unseen points
-    unseen_points = im == 128
+    unseen_points = map == 128
 
     # Create circular kernel
     y, x = np.ogrid[-radius:radius + 1, -radius:radius + 1]
@@ -260,7 +260,7 @@ def find_highest_information_gain_point(candidate_points, im, radius):
     information_gain_map = convolve(unseen_points, kernel, mode='constant')
 
     # Create a mask of candidate points
-    candidate_points_mask = np.zeros_like(im, dtype=bool)
+    candidate_points_mask = np.zeros_like(map, dtype=bool)
     candidate_points_mask[candidate_points[:, 1].astype(int), candidate_points[:, 0].astype(int)] = True
 
     # Mask the information gain map to only consider candidate points

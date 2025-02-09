@@ -52,7 +52,7 @@ class StudentController(RobotController):
 			self._last_distance_reading = distance
 			self._time_since_progress = time.time()
 
-	def map_update(self, point, map, map_data):
+	def map_update(self, point, map, map_metadata):
 		'''
 		Processes new map updates from the SLAM system and generates waypoints for the robot.
 		
@@ -67,7 +67,7 @@ class StudentController(RobotController):
 		Parameters:
 			point (PointStamped):	The position of the robot, in the world coordinate frame.
 			map (OccupancyGrid):	The current version of the map.
-			map_data (MapMetaData):	The current map metadata.
+			map_metadata (MapMetaData):	The current map metadata.
 		'''
 		rospy.loginfo('Got a map update.')
 
@@ -83,46 +83,46 @@ class StudentController(RobotController):
 				robot_position_world = (point.point.x, point.point.y)
 
 				# Convert the robot's position to the map coordinate frame
-				self._robot_position_map = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
+				self._robot_position_map = world_to_map(robot_position_world[0], robot_position_world[1], map_metadata)
 
 				# Convert the map to a 2D numpy array
-				im = np.array(map.data).reshape(map.info.height, map.info.width)
+				occupancy_grid = np.array(map.data).reshape(map_metadata.height, map_metadata.width)
 
 				# Convert the map to a threshold image in the configuration space using
 				# the robot's diagonal length to ensure the robot can always safely
 				# rotate in place
-				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_data.resolution)
-				im_thresh = convert_map_to_configuration_space(im, 0.8, 0.2, robot_diagonal_length_in_pixels)
+				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_metadata.resolution)
+				config_space_map = convert_map_to_configuration_space(occupancy_grid, 0.8, 0.2, robot_diagonal_length_in_pixels)
 
 				'''
 				Stale code that chose a goal point based on an information-theoretic
 				approach or a convolution-based geometric approach. Kept for reference.
 
 				rospy.loginfo(f"Selecting goal point")
-				candidate_points = find_frontier_points(im_thresh)
+				candidate_points = find_frontier_points(config_space_map)
 
 				# goal_point = find_furthest_point(candidate_points, self._robot_position_map)
 				# goal_point = find_closest_point(candidate_points, self._robot_position_map, 0)
-				goal_point = find_highest_concentration_point(candidate_points, im, map.info)
+				goal_point = find_highest_information_gain_point(candidate_points, config_space_map, 0)
 				'''
 
 				# Select the goal point using a BFS-based geometric approach
-				goal_point = new_find_best_point(im_thresh, map_data, self._robot_position_map)
+				goal_point = new_find_best_point(config_space_map, map_metadata, self._robot_position_map)
 
 				# If no goal point is found, we are done and save the map as an image
 				if goal_point is None:
 					rospy.logerr(f"Finished in {rospy.get_time()} seconds.")
-					if save_map_as_image(im):
+					if save_map_as_image(occupancy_grid):
 						rospy.logerr(f"Saved map as image.")
 					else:
 						rospy.logerr(f"Failed to save map as image.")
 					self._shutdown_all_nodes()
 
 				# Generate a path to the goal point
-				path = a_star(im_thresh, self._robot_position_map, goal_point, map_data)
+				path = a_star(config_space_map, self._robot_position_map, goal_point, map_metadata)
 
 				# Chop the path into waypoints
-				waypoints = generate_waypoints(im_thresh, path)
+				waypoints = generate_waypoints(config_space_map, path)
 				self.set_waypoints(waypoints)
 
 				# Update time since we last made progress, again

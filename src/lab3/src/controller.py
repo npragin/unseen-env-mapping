@@ -29,7 +29,7 @@ class RobotController:
 		self._waypoints = None
 
 		self._odom = None
-		self._map_data = None
+		self._map_metadata = None
 
 		# We're going to use TF, so we'll need a transform listener.
 		self.transform_listener = tf.TransformListener()
@@ -43,7 +43,7 @@ class RobotController:
 
 		# Subscribe to the map and the map metadata.
 		self.map_sub = rospy.Subscriber('map', OccupancyGrid, self._map_callback, queue_size=10)
-		self.map_data_sub = rospy.Subscriber('map_metadata', MapMetaData, self._map_data_callback, queue_size=10)
+		self.map_metadata_sub = rospy.Subscriber('map_metadata', MapMetaData, self._map_metadata_callback, queue_size=10)
 
 		self.odom_pub = rospy.Subscriber('odom', Odometry, self._odom_callback, queue_size=1)
 
@@ -101,10 +101,10 @@ class RobotController:
 		except:
 			point = None
 
-		self.map_update(point, map, self._map_data)
+		self.map_update(point, map, self._map_metadata)
 
-	def _map_data_callback(self, data):
-		self._map_data = data
+	def _map_metadata_callback(self, data):
+		self._map_metadata = data
 
 	def _marker_callback(self, _):
 		'''
@@ -216,7 +216,7 @@ class RobotController:
 		"""
 		raise NotImplemented('distance_update() not implemented')
 
-	def map_update(self, point, map, map_data):
+	def map_update(self, point, map, map_metadata):
 		"""
 		This is an abstract method that will be overridden by student_controller
 
@@ -225,7 +225,7 @@ class RobotController:
 		Parameters:
 			point (PointStamped):	The position of the robot, in the world coordinate frame.
 			map (OccupancyGrid):	The current version of the map.
-			map_data (MapMetaData):	The current map metadata.
+			map_metadata (MapMetaData):	The current map metadata.
 		"""
 		raise NotImplemented('map_update() not implemented')
 
