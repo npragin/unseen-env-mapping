@@ -285,19 +285,22 @@ def calculate_vector(point1, point2):
     return (point2[0] - point1[0], point2[1] - point1[1])
 
 def generate_waypoints(path):
-    """ Place waypoints along the path
-    @param path - the initial path
-    @ return - a new path"""
+    """
+    Generate a lower resolution path by placing waypoints where the direction changes
 
-    if len(path) < 3:
-        return path[1:]
+    Parameters:
+        path (list): A list of points as (x, y) pairs representing the initial path.
+                     The first point is assumed to be the start location.
 
+    Returns:
+        list: A simplified path containing only points where direction changes, excluding
+              the start location but including the goal point.
+    """
     waypoints = []
 
     for i in range(1, len(path) - 1):
-        # Calculate direction vectors between consecutive points
-        v1 = (path[i][0] - path[i-1][0], path[i][1] - path[i-1][1])
-        v2 = (path[i+1][0] - path[i][0], path[i+1][1] - path[i][1])
+        v1 = calculate_vector(path[i - 1], path[i])
+        v2 = calculate_vector(path[i], path[i + 1])
         
         # Check if vectors are not collinear using cross product
         # Add point to the path if the path's direction changes at that point
