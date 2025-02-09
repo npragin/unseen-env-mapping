@@ -58,7 +58,7 @@ def plot_with_explore_points(im_threshhold, zoom=1.0, robot_loc=None, explore_po
         axs[i].set_xlim(width / 2 - zoom * width / 2, width / 2 + zoom * width / 2)
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
-# ------------------------------------ Exploration point selection ------------------------------------
+# --------------------------------------- Goal point selection ---------------------------------------
 def find_frontier_points(im):
     """
     Given a thresholded image of a map, this function returns a list of all frontier
@@ -81,7 +81,7 @@ def find_frontier_points(im):
                        [1, 0, 1],
                        [1, 1, 1]])
 
-    # Get number of unseen neighbors by convolving the unseen_mask using adjacency kernel
+    # Get number of unseen neighbors
     unseen_neighbors = convolve(unseen_mask.astype(int), adjacency_kernel, mode="constant", cval=0)
 
     # Identify points on the frontier by getting free points with unseen neighbors
@@ -196,33 +196,41 @@ def new_find_best_point(map, map_data, robot_loc):
     path.reverse()
     return path
 
-def find_closest_point(possible_points, robot_loc, map_data):
-    points = np.array(list(possible_points))
-    distances = np.linalg.norm(points - robot_loc, axis=1)
-    robot_map_area = np.linalg.norm((0.22 / map_data.resolution, 0.19 / map_data.resolution))
-    idx_not_under_robot = np.where(distances >= robot_map_area * 5)[0]
-
-    best_point_idx = idx_not_under_robot[np.argmin(distances[idx_not_under_robot])]
-    best_point = points[best_point_idx]
-    rospy.logerr(f"Closest point found is: {best_point}")
-    return best_point
-
-
-def find_furthest_point(possible_points, robot_loc):
+def find_closest_point(candidate_points, robot_loc, min_distance=0):
     """
-    Returns the point from a list of candidate points closest to the robot's location.
+    Returns the point from a list of candidate points closest to the robot's location
+    and, optionally, a minimum distance from the robot's location.
 
     Parameters:
-        possible_points (list): List of (x, y) pairs of candidate points
+        candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
+        robot_loc (tuple): (x, y) pair representing the robot's current position
+        min_distance (float): The minimum distance for the selected point to be from the
+                              robot.
+
+    Returns:
+        tuple: (x, y) pair of the closest point to the robot's location, such that the
+               point is not directly beneath the robot
+    """
+    distances = np.linalg.norm(candidate_points - robot_loc, axis=1)
+    # Replace distances < min_distance with np.inf
+    masked_distances = np.where(distances >= min_distance, distances, np.inf)
+    return candidate_points[np.argmin(masked_distances)]
+
+def find_furthest_point(candidate_points, robot_loc):
+    """
+    Returns the point from a list of candidate points furthest to the robot's location.
+
+    Parameters:
+        candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
         robot_loc (tuple): (x, y) pair representing the robot's current position
 
     Returns:
-        tuple: (x, y) pair of the closest point to the robot's location
+        tuple: (x, y) pair of the furthest point to the robot's location
     """
 
-    distances = np.linalg.norm(np.array(possible_points) - robot_loc, axis=1)
+    distances = np.linalg.norm(candidate_points - robot_loc, axis=1)
     furthest_idx = np.argmax(distances)
-    return possible_points[furthest_idx]
+    return candidate_points[furthest_idx]
 
 def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
     radius_pixels = 10 #int(radius / map_data.resolution)
@@ -252,18 +260,12 @@ def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
     rospy.loginfo(f"max_idx type: {type(max_idx)}, {max_idx}")
     return max_idx
 
-
-def calculate_distance(point1, point2):
-    """Calculate Euclidean distance between two points."""
-    return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
-
 def calculate_vector(point1, point2):
     """Calculate the vector from point1 to point2."""
     return point2[0] - point1[0], point2[1] - point1[1]
 
-def generate_waypoints(im, path):
+def generate_waypoints(path):
     """ Place waypoints along the path
-    @param im - the thresholded image
     @param path - the initial path
     @ return - a new path"""
 
