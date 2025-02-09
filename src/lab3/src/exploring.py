@@ -272,8 +272,17 @@ def find_highest_information_gain_point(candidate_points, im, radius):
     return max_ig_point
 
 def calculate_vector(point1, point2):
-    """Calculate the vector from point1 to point2."""
-    return point2[0] - point1[0], point2[1] - point1[1]
+    """
+    Calculate the vector from point1 to point2
+
+    Parameters:
+        point1 (tuple): A point as an (x, y) pair
+        point2 (tuple): A point as an (x, y) pair
+
+    Returns:
+        tuple: The displacement vector from point1 to point2 as a (dx, dy) pair
+    """
+    return (point2[0] - point1[0], point2[1] - point1[1])
 
 def generate_waypoints(path):
     """ Place waypoints along the path
