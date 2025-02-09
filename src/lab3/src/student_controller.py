@@ -8,7 +8,7 @@ import numpy as np
 from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import a_star, convert_map_to_configuration_space
-from exploring import new_find_best_point, generate_waypoints, find_all_possible_goals, find_highest_concentration_point, find_closest_point, find_furthest_point
+from exploring import new_find_best_point, generate_waypoints, find_frontier_points, find_highest_information_gain_point, find_closest_point, find_furthest_point
 from helpers import world_to_map, save_map_as_image
 import time
 from math import ceil
@@ -98,20 +98,19 @@ class StudentController(RobotController):
 				Stale code that chose a goal point based on an information-theoretic
 				approach or a convolution-based geometric approach. Kept for reference.
 
-				# rospy.loginfo(f"finding points")
-				# points = find_all_possible_goals(im_thresh, map_data)
-				# rospy.loginfo(f"points is {points}")
-				# # best_point = find_furthest_point(points, self._robot_position)
-				# best_point = find_closest_point(points, self._robot_position, map.info)
-				# # best_point = find_highest_concentration_point(points, im, map.info)
-				# path = a_star(im_thresh, self._robot_position, best_point, map_data)
+				rospy.loginfo(f"Selecting goal point")
+				candidate_points = find_frontier_points(im_thresh)
+
+				# goal_point = find_furthest_point(candidate_points, self._robot_position)
+				# goal_point = find_closest_point(candidate_points, self._robot_position, 0)
+				goal_point = find_highest_concentration_point(candidate_points, im, map.info)
 				'''
 
 				# Select the goal point using a BFS-based geometric approach
-				best_point = new_find_best_point(im_thresh, map_data, self._robot_position)
+				goal_point = new_find_best_point(im_thresh, map_data, self._robot_position)
 
 				# If no goal point is found, we are done and save the map as an image
-				if best_point is None:
+				if goal_point is None:
 					rospy.logerr(f"Finished in {rospy.get_time()} seconds.")
 					if save_map_as_image(im):
 						rospy.logerr(f"Saved map as image.")
@@ -120,7 +119,7 @@ class StudentController(RobotController):
 					self._shutdown_all_nodes()
 
 				# Generate a path to the goal point
-				path = a_star(im_thresh, self._robot_position, best_point, map_data)
+				path = a_star(im_thresh, self._robot_position, goal_point, map_data)
 
 				# Chop the path into waypoints
 				waypoints = generate_waypoints(im_thresh, path)
