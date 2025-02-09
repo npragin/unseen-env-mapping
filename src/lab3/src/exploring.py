@@ -82,7 +82,7 @@ def find_frontier_points(im):
                        [1, 1, 1]])
 
     # Get number of unseen neighbors
-    unseen_neighbors = convolve(unseen_mask.astype(int), adjacency_kernel, mode="constant", cval=0)
+    unseen_neighbors = convolve(unseen_mask.astype(int), adjacency_kernel, mode="constant")
 
     # Identify points on the frontier by getting free points with unseen neighbors
     frontier_points_mask = free_mask & (unseen_neighbors > 0)
@@ -232,33 +232,44 @@ def find_furthest_point(candidate_points, robot_loc):
     furthest_idx = np.argmax(distances)
     return candidate_points[furthest_idx]
 
-def find_highest_concentration_point(possible_points, im, map_data, radius=0.5):
-    radius_pixels = 10 #int(radius / map_data.resolution)
+def find_highest_information_gain_point(candidate_points, im, radius):
+    """
+    Returns the point from a list of candidates that has the highest concentration of
+    unexplored pixels within a given radius.
 
-    # Create a binary image of all target points (where im == 128)
-    target_points = np.zeros_like(im, dtype=float)
-    target_points[im == 128] = 1
+    **WARNING**: This function will count unseen points through walls
+
+    Parameters:
+        candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
+        im (numpy.ndarray): The thresholded image of the map
+        radius (int): Radius in pixels to check for unseen points around each candidate
+                      point
+
+    Returns:
+        tuple: (y, x) coordinates of the point with highest number of unexplored points
+               within its radius
+    """
+    # Create mask of unseen points
+    unseen_points = im == 128
 
     # Create circular kernel
-    y, x = np.ogrid[-radius_pixels:radius_pixels+1, -radius_pixels:radius_pixels+1]
-    kernel = x*x + y*y <= radius_pixels*radius_pixels
-    kernel = kernel.astype(float)
+    y, x = np.ogrid[-radius:radius + 1, -radius:radius + 1]
+    kernel = (x ** 2 + y ** 2 <= radius ** 2).astype(float)
 
-    # Apply convolution to count nearby points
-    concentration_map = convolve(target_points, kernel, mode='constant', cval=0.0)
+    # Convolve to calculate information gain at each point
+    information_gain_map = convolve(unseen_points, kernel, mode='constant')
 
-    # Create a mask of possible points
-    possible_points = np.array(list(possible_points))
-    points_mask = np.zeros_like(im, dtype=bool)
-    points_mask[possible_points[:, 0].astype(int), possible_points[:, 1].astype(int)] = True
+    # Create a mask of candidate points
+    candidate_points_mask = np.zeros_like(im, dtype=bool)
+    candidate_points_mask[candidate_points[:, 1].astype(int), candidate_points[:, 0].astype(int)] = True
 
-    # Mask the concentration map to only look at possible points
-    masked_concentration = np.where(points_mask, concentration_map, -1)
+    # Mask the information gain map to only consider candidate points
+    masked_ig_map = np.where(candidate_points_mask, information_gain_map, -1)
 
-    # Find the point with highest concentration
-    max_idx = np.unravel_index(np.argmax(masked_concentration), masked_concentration.shape)
-    rospy.loginfo(f"max_idx type: {type(max_idx)}, {max_idx}")
-    return max_idx
+    # Find the point with highest information gain
+    max_ig_point = np.unravel_index(np.argmax(masked_ig_map), masked_ig_map.shape)
+
+    return max_ig_point
 
 def calculate_vector(point1, point2):
     """Calculate the vector from point1 to point2."""
