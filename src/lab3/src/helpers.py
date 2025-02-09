@@ -25,8 +25,6 @@ def save_map_as_debug_image(filename, map, points, green_star=None, yellow_star=
     import rospy
     import os
 
-    rospy.loginfo("Saving visited points visualization")
-
     _, ax = plt.subplots()
 
     # Plot the base image/map

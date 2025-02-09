@@ -94,11 +94,11 @@ class StudentController(RobotController):
 				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_metadata.resolution)
 				config_space_map = convert_map_to_configuration_space(occupancy_grid, 0.8, 0.2, robot_diagonal_length_in_pixels)
 
+				rospy.loginfo(f"Selecting goal point")
 				'''
 				Stale code that chose a goal point based on an information-theoretic
 				approach or a convolution-based geometric approach. Kept for reference.
 
-				rospy.loginfo(f"Selecting goal point")
 				candidate_points = find_frontier_points(config_space_map)
 
 				# goal_point = find_furthest_point(candidate_points, self._robot_position_map)
@@ -118,6 +118,7 @@ class StudentController(RobotController):
 						rospy.logerr(f"Failed to save map as image.")
 					self._shutdown_all_nodes()
 
+				rospy.loginfo("Starting A*")
 				# Generate a path to the goal point
 				path = a_star(config_space_map, self._robot_position_map, goal_point, map_metadata)
 

@@ -99,8 +99,6 @@ visited = {}
 priority_queue = []
 
 def new_find_best_point(map, map_metadata, robot_loc):
-    rospy.loginfo("Starting new_find_best_point")
-
     # Set the minimum distance from the robot to the goal
     # Using half the lidar range to balance information gain and scan overlap
     lidar_range_in_meters = 8

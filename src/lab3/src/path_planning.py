@@ -365,8 +365,6 @@ def a_star(map, robot_loc, goal, map_metadata):
         list: A list of tuples representing the path from the robot's location to the
               goal location
     """
-    rospy.loginfo("Starting A*")
-
     # Initialize data structures for A*
     # visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
     priority_queue = []
@@ -416,8 +414,8 @@ def a_star(map, robot_loc, goal, map_metadata):
 
         goal = generate_alternate_goal(visited_points, goal)
         
-        save_map_as_debug_image("visited_points", map, visited_points, old_goal, robot_loc)
         rospy.logerr(f"Goal {old_goal} was unreachable; routing to {goal} instead.")
+        save_map_as_debug_image("visited_points", map, visited_points, old_goal, robot_loc)
 
     # Reconstruct the path to the goal using the parent nodes stored in visited
     path = reconstruct_path(visited, goal, map_metadata)
