@@ -21,7 +21,7 @@ class StudentController(RobotController):
 	'''
 	def __init__(self):
 		super().__init__()
-		self._robot_position = None
+		self._robot_position_map = None
 
 		self._robot_width_in_meters = 0.38
 		self._robot_height_in_meters = 0.44
@@ -83,7 +83,7 @@ class StudentController(RobotController):
 				robot_position_world = (point.point.x, point.point.y)
 
 				# Convert the robot's position to the map coordinate frame
-				self._robot_position = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
+				self._robot_position_map = world_to_map(robot_position_world[0], robot_position_world[1], map.info)
 
 				# Convert the map to a 2D numpy array
 				im = np.array(map.data).reshape(map.info.height, map.info.width)
@@ -101,13 +101,13 @@ class StudentController(RobotController):
 				rospy.loginfo(f"Selecting goal point")
 				candidate_points = find_frontier_points(im_thresh)
 
-				# goal_point = find_furthest_point(candidate_points, self._robot_position)
-				# goal_point = find_closest_point(candidate_points, self._robot_position, 0)
+				# goal_point = find_furthest_point(candidate_points, self._robot_position_map)
+				# goal_point = find_closest_point(candidate_points, self._robot_position_map, 0)
 				goal_point = find_highest_concentration_point(candidate_points, im, map.info)
 				'''
 
 				# Select the goal point using a BFS-based geometric approach
-				goal_point = new_find_best_point(im_thresh, map_data, self._robot_position)
+				goal_point = new_find_best_point(im_thresh, map_data, self._robot_position_map)
 
 				# If no goal point is found, we are done and save the map as an image
 				if goal_point is None:
@@ -119,7 +119,7 @@ class StudentController(RobotController):
 					self._shutdown_all_nodes()
 
 				# Generate a path to the goal point
-				path = a_star(im_thresh, self._robot_position, goal_point, map_data)
+				path = a_star(im_thresh, self._robot_position_map, goal_point, map_data)
 
 				# Chop the path into waypoints
 				waypoints = generate_waypoints(im_thresh, path)
