@@ -30,7 +30,9 @@ class StudentController(RobotController):
 		# We want to keep track of progress towards the goal to understand if we are stuck
 		self._last_distance_reading = 0
 		self._idle_time_allowed = 8
-		self._distance_threshold = 0.2
+		self._idle_distance_threshold = 0.2
+
+		self._lidar_range_in_meters = 8
 
 	def distance_update(self, distance):
 		'''
@@ -45,7 +47,7 @@ class StudentController(RobotController):
 			distance:	The distance to the current goal.
 		'''
 		distance_traveled = abs(self._last_distance_reading - distance)
-		meaningful_progress_made = distance_traveled >= self._distance_threshold
+		meaningful_progress_made = distance_traveled >= self._idle_distance_threshold
 		idle_time = time.time() - self._time_since_progress
 
 		if meaningful_progress_made and idle_time <= self._idle_time_allowed:
@@ -107,7 +109,10 @@ class StudentController(RobotController):
 				'''
 
 				# Select the goal point using a BFS-based geometric approach
-				goal_point = new_find_best_point(config_space_map, map_metadata, self._robot_position_map)
+				# Using half the lidar range as a preferred minimum distance to balance
+				# information gain and scan overlap
+				lidar_range_in_pixels = ceil(self._lidar_range_in_meters / map_metadata.resolution)
+				goal_point = new_find_best_point(config_space_map, map_metadata, self._robot_position_map, lidar_range_in_pixels / 2)
 
 				# If no goal point is found, we are done and save the map as an image
 				if goal_point is None:
