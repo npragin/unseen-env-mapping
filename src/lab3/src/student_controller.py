@@ -123,7 +123,7 @@ class StudentController(RobotController):
 				path = a_star(config_space_map, self._robot_position_map, goal_point, map_metadata)
 
 				# Chop the path into waypoints
-				waypoints = generate_waypoints(config_space_map, path)
+				waypoints = generate_waypoints(path)
 				self.set_waypoints(waypoints)
 
 				# Update time since we last made progress, again
