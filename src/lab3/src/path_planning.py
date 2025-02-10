@@ -306,6 +306,30 @@ def has_free_neighbor(map, loc):
                 return True
     return False
 
+def has_unseen_neighbor(map, loc):
+    """
+    Returns a boolean indicating if a location in the map has an unseen neighbor
+
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        bool: True if the location has an unseen neighbor, False otherwise
+    """
+    height, width = map.shape
+    i, j = loc
+
+    i_min = max(0, i-1)
+    i_max = min(height, i+2)
+    j_min = max(0, j-1)
+    j_max = min(width, j+2)
+    
+    for x in range(i_min, i_max):
+        for y in range(j_min, j_max):
+            if (x, y) != loc and map[y, x] == 128:
+                return True
+    return False
 
 # ----------------------- A* Path Helpers ------------------------
 def generate_alternate_goal(visited_points, goal):
