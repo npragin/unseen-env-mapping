@@ -98,19 +98,8 @@ def find_frontier_points(map):
 visited = {}
 priority_queue = []
 
-def new_find_best_point(map, map_metadata, robot_loc):
-    # Set the minimum distance from the robot to the goal
-    # Using half the lidar range to balance information gain and scan overlap
-    lidar_range_in_meters = 8
-    lidar_range_in_pixels = ceil(lidar_range_in_meters / map_metadata.resolution)
-    distance_restriction = lidar_range_in_pixels / 2
-
-    free_areas = map != 0
-
-    # Allow processing points too close to the wall if robot is too close to the wall
-    process_bad_nodes = np.sum(free_areas[max(0, robot_loc[1] - 1):min(free_areas.shape[0], robot_loc[1] + 2), max(0, robot_loc[0] - 1):min(free_areas.shape[1], robot_loc[0] + 2)]) < 2
-    if process_bad_nodes:
-        rospy.loginfo("Processing bad nodes.")
+def new_find_best_point(map, map_metadata, robot_loc, distance_restriction=0):
+    # NOTE: When refactoring this, test that multi goal A* doesn't start dropping points
 
     # Initialize data structures for Dijkstra
     # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
@@ -131,43 +120,31 @@ def new_find_best_point(map, map_metadata, robot_loc):
 
     nearest = None
     while priority_queue and nearest is None:
-        curr_node_distance, curr_node = heapq.heappop(priority_queue)
-        _, curr_node_parent, curr_node_closed = visited[curr_node]
+        _, curr_node = heapq.heappop(priority_queue)
+        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
 
         if curr_node_closed:
             continue
 
-        # TODO: Use a neighbor helper function from path_planning.py
-        for di in [-1, 0, 1]:
-            for dj in [-1, 0, 1]:
-                if di == 0 and dj == 0:
-                    continue
+        for neighbor, neighbor_cost in path_planning.get_neighbors_with_cost(map, curr_node):
+            # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
+            if not path_planning.is_wall(map, neighbor) or not path_planning.has_free_neighbor(map, neighbor):
+                continue
 
-                neighbor = (curr_node[0] + di, curr_node[1] + dj)
+            neighbor_distance = curr_node_distance + neighbor_cost
 
-                # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
-                if (not free_areas[neighbor[1], neighbor[0]] and not process_bad_nodes) or not path_planning.has_free_neighbor(map, neighbor):
-                    continue
-
-                if process_bad_nodes and free_areas[neighbor[1], neighbor[0]]:
-                    rospy.loginfo("No longer processing bad nodes.")
-                    process_bad_nodes = False
-
-                neighbor_distance = curr_node_distance + np.linalg.norm((di, dj))
-
-                if neighbor not in visited:
-                    visited[neighbor] = (neighbor_distance, curr_node, False)
-                    heapq.heappush(priority_queue, (neighbor_distance, neighbor))
+            if neighbor not in visited:
+                visited[neighbor] = (neighbor_distance, curr_node, False)
+                heapq.heappush(priority_queue, (neighbor_distance, neighbor))
                     
         # Close the node if it's seen or selected as the goal
-        if map[curr_node[1], curr_node[0]] == 128:
-            if curr_node_distance >= distance_restriction:
-                nearest = curr_node
-                visited[curr_node] = (curr_node_distance, curr_node_parent, True)
-            else:
-                if furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
-                    furthest_rejected_goal = curr_node
-                rejected_candidate_goals.append(curr_node)
+        if map[curr_node[1], curr_node[0]] == 128 and curr_node_distance >= distance_restriction:
+            nearest = curr_node
+            visited[curr_node] = (curr_node_distance, curr_node_parent, True)
+        elif map[curr_node[1], curr_node[0]] == 128:
+            if furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
+                furthest_rejected_goal = curr_node
+            rejected_candidate_goals.append(curr_node)
         else:
             visited[curr_node] = (curr_node_distance, curr_node_parent, True)
 
