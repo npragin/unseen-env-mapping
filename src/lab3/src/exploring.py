@@ -98,78 +98,67 @@ def find_frontier_points(map):
 visited = {}
 priority_queue = []
 
-def new_find_best_point(map, map_metadata, robot_loc, distance_restriction=0):
+def new_find_best_point(map, robot_loc, distance_restriction=0):
     # NOTE: When refactoring this, test that multi goal A* doesn't start dropping points
+    # NOTE: Also check if we ever get unseen nodes in multi goal A*
+    # NOTE: Check if we increased the computation time significantly
+    # NOTE: There are changes to make in multi-goal A* and regular A* after the refactor is done here, marked by NOTE
 
     # Initialize data structures for Dijkstra
-    # Visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
+    # Visited stores (distance from robot, is node closed) and is indexed using (x, y) tuple
     global visited, priority_queue
+    candidate_goals = []
+    furthest_rejected_goal = None
+    goal = None
 
     # Updating distance from robot for all points in priority queue
+    # TODO: Can we remove the is_wall check now that we only process free spaces?
     if len(priority_queue) > 0:
-        points = set(p[1] for p in priority_queue if not visited[p[1]][2] and not path_planning.is_wall(map, p[1]))
+        points = set(p[1] for p in priority_queue if not visited[p[1]][1] and not path_planning.is_wall(map, p[1]))
         distances = path_planning.multi_goal_a_star(map, robot_loc, points)
         priority_queue = [(distance, point) for point, distance in distances.items()]
         heapq.heapify(priority_queue)
 
-    rejected_candidate_goals = []
-    furthest_rejected_goal = None
+    # Add robot_loc to the priority queue to start the search there if it isn't closed
+    robot_loc_closed = visited.get(robot_loc, (0, False))[1]
+    if not robot_loc_closed:
+        heapq.heappush(priority_queue, (0, robot_loc))
+        visited[robot_loc] = (0, robot_loc_closed)
 
-    heapq.heappush(priority_queue, (0, robot_loc))
-    visited[robot_loc] = (0, None, False)
-
-    nearest = None
-    while priority_queue and nearest is None:
+    while priority_queue and goal is None:
         _, curr_node = heapq.heappop(priority_queue)
-        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
+        curr_node_distance, curr_node_closed = visited[curr_node]
 
+        # If this node is closed, skip it
         if curr_node_closed:
             continue
 
-        for neighbor, neighbor_cost in path_planning.get_neighbors_with_cost(map, curr_node):
-            # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
-            if path_planning.is_wall(map, neighbor) or not path_planning.has_free_neighbor(map, neighbor):
-                continue
+        # If this node is a frontier point, check if the distance restriction is
+        # satisfied and set it as the goal if yes. Save the furthest goal to use if no
+        # point satisfies the distance restriction. Don't process points with unseen
+        # neighbors to avoid adding unseen nodes to the priority queue
+        if path_planning.has_unseen_neighbor(map, curr_node):
+            if curr_node_distance >= distance_restriction:
+                goal = curr_node
+            elif furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
+                    furthest_rejected_goal = curr_node
+            candidate_goals.append(curr_node)
+            continue
+        else:
+            visited[curr_node] = (curr_node_distance, True)
 
+        for neighbor, neighbor_cost in path_planning.get_free_neighbors_with_cost(map, curr_node):
             neighbor_distance = curr_node_distance + neighbor_cost
 
             if neighbor not in visited:
-                visited[neighbor] = (neighbor_distance, curr_node, False)
+                visited[neighbor] = (neighbor_distance, False)
                 heapq.heappush(priority_queue, (neighbor_distance, neighbor))
-                    
-        # Close the node if it's seen or selected as the goal
-        if map[curr_node[1], curr_node[0]] == 128 and curr_node_distance >= distance_restriction:
-            nearest = curr_node
-            visited[curr_node] = (curr_node_distance, curr_node_parent, True)
-        elif map[curr_node[1], curr_node[0]] == 128:
-            if furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
-                furthest_rejected_goal = curr_node
-            rejected_candidate_goals.append(curr_node)
-        else:
-            visited[curr_node] = (curr_node_distance, curr_node_parent, True)
-
-    # If we have to return the furthest rejected goal, remove it from the rejected candidate goals and close it
-    if nearest is None and furthest_rejected_goal is not None:
-        rejected_candidate_goals.remove(furthest_rejected_goal)
-        visited[furthest_rejected_goal] = (visited[furthest_rejected_goal][0], visited[furthest_rejected_goal][1], True)
 
     # Add the rejected candidate goals back to the priority queue to reconsider them later
-    for point in rejected_candidate_goals:
+    for point in candidate_goals:
         heapq.heappush(priority_queue, (visited[point][0], point))
 
-    return nearest if nearest is not None else furthest_rejected_goal
-
-    # Leaving this in case we can find a way to construct a path from this algorithm
-    path = []
-    current = nearest
-    while current:
-        current_x_in_space = current[0] * map_metadata.resolution + map_metadata.origin.position.x
-        current_y_in_space = current[1] * map_metadata.resolution + map_metadata.origin.position.y
-        path.append((current_x_in_space, current_y_in_space))
-        current = visited[current][1]
-
-    path.reverse()
-    return path
+    return goal if goal is not None else furthest_rejected_goal
 
 def find_closest_point(candidate_points, robot_loc, min_distance=0):
     """
@@ -273,6 +262,7 @@ def generate_waypoints(path):
     """
     waypoints = []
 
+    # TODO: Smooth it out better by either repeating this or doing the cross between longer vectors (i + 2 and i - 2)
     for i in range(1, len(path) - 1):
         v1 = calculate_vector(path[i - 1], path[i])
         v2 = calculate_vector(path[i], path[i + 1])

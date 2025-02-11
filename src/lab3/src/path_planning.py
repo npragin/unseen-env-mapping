@@ -495,7 +495,7 @@ def multi_goal_a_star(map, robot_loc, goals):
         visited[curr_node] = (curr_node_distance, True)
 
         # NOTE: When we change exploring.py to select known free space as goal and we do the thing where we don't process neighbors of rejected goals,
-        #       we should be able to change this to not is_free instead because points in unknown space won't make it in the PQ
+        #       we should be able to change this to not is_free instead because points in unknown space won't make it in the PQ and we will only path through free space
         # We use get_neighbors because there is a chance for a goal to be in unseen space
         for neighbor, neighbor_cost in get_neighbors_with_cost(map, curr_node):
             # If a neighbor is closed, skip it

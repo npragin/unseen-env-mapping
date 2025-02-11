@@ -112,7 +112,7 @@ class StudentController(RobotController):
 				# Using half the lidar range as a preferred minimum distance to balance
 				# information gain and scan overlap
 				lidar_range_in_pixels = ceil(self._lidar_range_in_meters / map_metadata.resolution)
-				goal_point = new_find_best_point(config_space_map, map_metadata, self._robot_position_map, lidar_range_in_pixels / 2)
+				goal_point = new_find_best_point(config_space_map, self._robot_position_map, lidar_range_in_pixels / 2)
 
 				# If no goal point is found, we are done and save the map as an image
 				if goal_point is None:
