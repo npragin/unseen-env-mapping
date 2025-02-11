@@ -20,7 +20,7 @@ def map_to_world(index, map_metadata):
 
     return (world_x, world_y)
 
-def save_map_as_debug_image(filename, map, points, green_star=None, yellow_star=None):
+def save_map_as_debug_image(filename, map, points=None, green_star=None, yellow_star=None):
     import matplotlib.pyplot as plt
     import rospy
     import os

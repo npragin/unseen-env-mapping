@@ -128,7 +128,7 @@ def new_find_best_point(map, map_metadata, robot_loc, distance_restriction=0):
 
         for neighbor, neighbor_cost in path_planning.get_neighbors_with_cost(map, curr_node):
             # Skip nodes that are too close to the wall, unless the robot is, and nodes that are not adjacent to free space
-            if not path_planning.is_wall(map, neighbor) or not path_planning.has_free_neighbor(map, neighbor):
+            if path_planning.is_wall(map, neighbor) or not path_planning.has_free_neighbor(map, neighbor):
                 continue
 
             neighbor_distance = curr_node_distance + neighbor_cost
