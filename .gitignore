@@ -1,2 +1,5 @@
-*.pyc
-.DS_STORE
+.catkin_workspace
+LICENSE
+build
+devel/
+**/__pycache__/

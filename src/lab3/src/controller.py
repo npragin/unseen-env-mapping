@@ -6,8 +6,8 @@ import rospy
 
 import signal
 from threading import Lock
+import os
 
-import message_filters
 import tf
 
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
@@ -17,9 +17,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 import actionlib
 from lab2.msg import NavTargetAction, NavTargetActionGoal
 
-#Import path_planning and exploring code
-from path_planning import dijkstra, open_image, plot_with_path, is_free, get_neighbors
-from exploring import find_all_possible_goals, find_best_point, plot_with_explore_points, find_waypoints
+import time
 
 
 
@@ -31,7 +29,7 @@ class RobotController:
 		self._waypoints = None
 
 		self._odom = None
-		self._map_data = None
+		self._map_metadata = None
 
 		# We're going to use TF, so we'll need a transform listener.
 		self.transform_listener = tf.TransformListener()
@@ -39,13 +37,13 @@ class RobotController:
 		# An action server to send the requests to.
 		self.action_client = actionlib.SimpleActionClient('nav_target', NavTargetAction)
 		self.action_client.wait_for_server()
-		
+
 		# Visualize the goal points.
 		self.marker_pub = rospy.Publisher('goal_points', MarkerArray, queue_size=10)
 
 		# Subscribe to the map and the map metadata.
 		self.map_sub = rospy.Subscriber('map', OccupancyGrid, self._map_callback, queue_size=10)
-		self.map_data_sub = rospy.Subscriber('map_metadata', MapMetaData, self._map_data_callback, queue_size=10)
+		self.map_metadata_sub = rospy.Subscriber('map_metadata', MapMetaData, self._map_metadata_callback, queue_size=10)
 
 		self.odom_pub = rospy.Subscriber('odom', Odometry, self._odom_callback, queue_size=1)
 
@@ -55,9 +53,13 @@ class RobotController:
 		# Set up a signal handler to deal with ctrl-c so that we close down gracefully.
 		signal.signal(signal.SIGINT, self._shutdown)
 
+		self._time_since_progress = time.time()
+
 	@classmethod
 	def _generate_point(cls, p):
-		'''This function takes an (x, y) tuple, and returns a PointStamped in the map frame.'''
+		'''
+		This function takes an (x, y) tuple, and returns a PointStamped in the map frame.
+		'''
 		map_point = PointStamped()
 		map_point.header.frame_id = 'map'
 		map_point.header.stamp = rospy.Time.now()
@@ -67,7 +69,17 @@ class RobotController:
 
 		return map_point
 
+	def _shutdown_all_nodes(self):
+		'''
+		This function shuts down all ROS nodes.
+		'''
+		os.kill(os.getppid(), signal.SIGINT)
+
 	def _shutdown(self, sig, frame):
+		'''
+		This function gracefully terminates this node and is called when the program
+		is terminated by a signal.
+		'''
 		self.set_waypoints([])
 		sys.exit()
 
@@ -75,6 +87,11 @@ class RobotController:
 		self._odom = odom
 
 	def _map_callback(self, map):
+		'''
+		This function is called whenever we have a map update. It gets the robot's
+		position from our stored odometry data and passes it to map_update with the new
+		map data.
+		'''
 		point = PointStamped()
 		point.header = self._odom.header
 		point.point = self._odom.pose.pose.position
@@ -84,12 +101,17 @@ class RobotController:
 		except:
 			point = None
 
-		self.map_update(point, map, self._map_data)
+		self.map_update(point, map, self._map_metadata)
 
-	def _map_data_callback(self, data):
-		self._map_data = data
+	def _map_metadata_callback(self, data):
+		self._map_metadata = data
 
 	def _marker_callback(self, _):
+		'''
+		This function publishes the waypoints as markers for visualization in RViz.
+
+		It works, don't worry about it.
+		'''
 		if not self._waypoints:
 			return
 
@@ -104,7 +126,7 @@ class RobotController:
 			marker.action = Marker.ADD
 			marker.pose.orientation.x = 0.0
 			marker.pose.orientation.y = 0.0
-			marker.pose.orientation.z = 0.0		
+			marker.pose.orientation.z = 0.0
 			marker.pose.orientation.w = 1.0
 			marker.scale.x = 0.1
 			marker.scale.y = 0.1
@@ -127,7 +149,7 @@ class RobotController:
 				marker.pose.position = point.point
 				marker.pose.orientation.x = 0.0
 				marker.pose.orientation.y = 0.0
-				marker.pose.orientation.z = 0.0		
+				marker.pose.orientation.z = 0.0
 				marker.pose.orientation.w = 1.0
 				marker.scale.x = 0.2
 				marker.scale.y = 0.2
@@ -145,12 +167,24 @@ class RobotController:
 		self.distance_update(feedback.distance.data)
 
 	def set_waypoints(self, points):
+		'''
+		This function replaces the existing waypoints with the new list of points provided.
+		The list of points is expected to be in the map space.
+
+		Parameters:
+			points (Iterable): An iterable of (x, y) tuples representing the new waypoints
+							   in the map space.
+		'''
 		self.action_client.cancel_goal()
 
 		with self.mutex:
 			self._waypoints = [RobotController._generate_point(p) for p in points]
 
 	def send_points(self):
+		'''
+		This function is the main loop of the action server. It sends waypoints to the
+		action client.
+		'''
 		rate = rospy.Rate(10)
 		while True:
 			while self._waypoints and len(self._waypoints) > 0:
@@ -159,6 +193,7 @@ class RobotController:
 				goal = NavTargetActionGoal()
 				goal.goal = self._waypoints[0]
 				goal.goal.header.stamp = rospy.Time.now()
+				self._time_since_progress = time.time()
 
 				self.action_client.send_goal(goal, feedback_cb=self._feedback_callback)
 				self.action_client.wait_for_result()
@@ -171,22 +206,35 @@ class RobotController:
 			rate.sleep()
 
 	def distance_update(self, distance):
-		""" This is a dummy class method that will be overwritten by the one in student_controller - change that
-		 one, NOT this one"""
+		"""
+		This is an abstract method that will be overridden by student_controller
+
+		This function is called whenever a new distance update is available.
+
+		Parameters:
+			distance:	The distance to the current goal.
+		"""
 		raise NotImplemented('distance_update() not implemented')
 
-	def map_update(self, point, map, map_data):
-		""" This is a dummy class method that will be overwritten by the one in student_controller - change that
-		 one, NOT this one"""
+	def map_update(self, point, map, map_metadata):
+		"""
+		This is an abstract method that will be overridden by student_controller
+
+		This function is called whenever a new map update is available.
+
+		Parameters:
+			point (PointStamped):	The position of the robot, in the world coordinate frame.
+			map (OccupancyGrid):	The current version of the map.
+			map_metadata (MapMetaData):	The current map metadata.
+		"""
 		raise NotImplemented('map_update() not implemented')
 
 
 if __name__ == '__main__':
 	rospy.init_node('robot_controller', argv=sys.argv)
 
-	# This creates the controller then sends some starting way points to get the robot moving
 	controller = RobotController()
-	controller.set_waypoints(((-4, -3), (-4, 0), (5, 0)))
+
 	controller.send_points()
 
 	rospy.spin()

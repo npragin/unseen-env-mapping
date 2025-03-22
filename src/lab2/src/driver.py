@@ -5,7 +5,7 @@ import rospy
 import sys
 import numpy as np
 
-from math import atan2, tanh, sqrt, pi
+from math import atan2, tanh, sqrt, pi, ceil, degrees
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Point
@@ -132,7 +132,7 @@ class Driver:
 	# 			x-axis is forward, y-axis is to the left.
 	# 	lidar:	a LaserScan message with the current data from the LiDAR.  Use this for obstacle avoidance.
 	#           This is the same as your go and stop code
-	def get_twist(self, target, lidar):
+	def old_get_twist(self, target, lidar):
 		w = 0.76
 		command = Driver.zero_twist()
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
@@ -168,6 +168,55 @@ class Driver:
 				command.angular.z = left / (left + right) * 0.5
 			
 			command.linear.x = 0.1 if np.min(ranges[in_front_idx]) < 0.25 else np.min(ranges[in_front_idx]) * 0.1
+
+		return command
+
+	def get_twist(self, target, lidar):
+		w = 0.38 # Robot's width
+		l = 0.44
+		command = Driver.zero_twist() 
+		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
+		ranges = np.array(lidar.ranges)
+
+		obstacle_threshold = 1.5 + (l / 2)
+		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= w/2) & (ranges < obstacle_threshold))[0]
+
+		if (len(obstacles_in_front_idx) == 0):
+			rospy.loginfo("Driving to target.")
+			target_angle = atan2(target[1], target[0])
+			target_distance = np.linalg.norm(np.array(target))
+
+			command.linear.x = target_distance / 2
+			command.angular.z = target_angle * 0.75
+			return command
+		else:
+			rospy.loginfo("Avoiding obstacles.")
+
+			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - l / 2
+
+			angle_of_concern = 2 * abs(np.arctan(w / 2 / obstacle_threshold))
+			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
+			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
+
+			cones = np.lib.stride_tricks.sliding_window_view(ranges, num_scans_of_concern)
+			safe_cones_idx = np.nonzero(np.all(cones > obstacle_threshold, axis=1))[0]
+
+			if len(safe_cones_idx) == 0:
+				rospy.loginfo("SHOULD DO A 180")
+				return command # TODO: Do a 180
+
+			nearest_safe_cone_idx = safe_cones_idx[np.argmin(np.abs(safe_cones_idx - (len(cones) / 2)))]
+			
+			half_window = num_scans_of_concern / 2
+			if half_window % 1 == 0:
+				lower_idx = nearest_safe_cone_idx + int(half_window)
+				safe_direction = (thetas[lower_idx] + thetas[lower_idx + 1]) / 2
+			else:
+				safe_direction = thetas[nearest_safe_cone_idx + int(half_window)]
+				
+			rospy.loginfo(f"SAFE DIRECTION IS: {safe_direction} OBSTACLE DISTANCE: {obstacle_distance}")
+			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) + 1 if safe_direction > 0 else -1
+			command.linear.x = 0.5 * tanh(1 * (1 / obstacle_distance)) if obstacle_distance > 0.25 else 0
 
 		return command
 

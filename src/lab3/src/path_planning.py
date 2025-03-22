@@ -1,50 +1,39 @@
 #!/usr/bin/env python3
 
-# This assignment implements Dijkstra's shortest path on a graph, finding an unvisited node in a graph,
-#   picking which one to visit, and taking a path in the map and generating waypoints along that path
-#
-# Given to you:
-#   Priority queue
-#   Image handling
-#   Eight connected neighbors
-#
-# Slides https://docs.google.com/presentation/d/1XBPw2B2Bac-LcXH5kYN4hQLLLl_AMIgoowlrmPpTinA/edit?usp=sharing
-
-# The ever-present numpy
-import numpy as np
-
-# Our priority queue
-import heapq
 import rospy
-from scipy.ndimage import convolve
-import matplotlib.pyplot as plt
-import os
-from exploring import find_highest_concentration_point
+import numpy as np
+import heapq
+import cv2
+
+from helpers import save_map_as_debug_image
 
 
-# -------------- Showing start and end and path ---------------
-def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, path=None):
-    """Show the map plus, optionally, the robot location and goal location and proposed path
-    @param im - the image of the SLAM map
-    @param im_threshhold - the image of the SLAM map
-    @param zoom - how much to zoom into the map (value between 0 and 1)
-    @param robot_loc - the location of the robot in pixel coordinates
-    @param goal_loc - the location of the goal in pixel coordinates
-    @param path - the proposed path in pixel coordinates"""
+# ------------------ Plotting path, robot, and goal location ------------------
+def plot_with_path(map, zoom=1.0, robot_loc=None, goal=None, path=None):
+    """
+    Plot the map and, optionally, the robot location, goal location, and proposed path
+
+    Parameters:
+        map (numpy.ndarray): The thresholded image of the map
+        zoom (float): The zoom level
+        robot_loc (tuple): The robot location as an (x, y) pair
+        goal (tuple): The goal location as an (x, y) pair
+        path (list): A list of tuples representing the path as (x, y) pairs
+    """
 
     # Putting this in here to avoid messing up ROS
     import matplotlib.pyplot as plt
 
     fig, axs = plt.subplots(1, 2)
-    axs[0].imshow(im, origin='lower', cmap="gist_gray")
+    axs[0].imshow(map, origin='lower', cmap="gist_gray")
     axs[0].set_title("original image")
-    axs[1].imshow(im_threshhold, origin='lower', cmap="gist_gray")
+    axs[1].imshow(map, origin='lower', cmap="gist_gray")
     axs[1].set_title("threshold image")
     """
     # Used to double check that the is_xxx routines work correctly
     for i in range(0, im_threshhold.shape[1]-1, 10):
         for j in range(0, im_threshhold.shape[0]-1, 10):
-            if is_wall(im_thresh, (i, j)):
+            if is_wall(map, (i, j)):
                 axs[1].plot(i, j, '.b')
     """
 
@@ -55,8 +44,8 @@ def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, p
     for i in range(0, 2):
         if robot_loc is not None:
             axs[i].plot(robot_loc[0], robot_loc[1], '+r', markersize=10)
-        if goal_loc is not None:
-            axs[i].plot(goal_loc[0], goal_loc[1], '*g', markersize=10)
+        if goal is not None:
+            axs[i].plot(goal[0], goal[1], '*g', markersize=10)
         if path is not None:
             for p, q in zip(path[0:-1], path[1:]):
                 axs[i].plot([p[0], q[0]], [p[1], q[1]], '-y', markersize=2)
@@ -65,116 +54,145 @@ def plot_with_path(im, im_threshhold, zoom=1.0, robot_loc=None, goal_loc=None, p
 
     for i in range(0, 2):
         # Implements a zoom - set zoom to 1.0 if no zoom
-        width = im.shape[1]
-        height = im.shape[0]
+        width = map.shape[1]
+        height = map.shape[0]
 
         axs[i].set_xlim(width / 2 - zoom * width / 2, width / 2 + zoom * width / 2)
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
 
-# -------------- Thresholded image True/False ---------------
-def is_wall(im, pix):
-    """ Is the pixel a wall pixel?
-    @param im - the image
-    @param pix - the pixel i,j"""
-    if im[pix[1], pix[0]] == 0:
-        return True
-    return False
-
-
-def is_unseen(im, pix):
-    """ Is the pixel one we've seen?
-    @param im - the image
-    @param pix - the pixel i,j"""
-    if im[pix[1], pix[0]] == 128:
-        return True
-    return False
-
-
-#def is_free(im, pix):
-    """ Is the pixel empty?
-    @param im - the image
-    @param pix - the pixel i,j"""
-    if im[pix[1], pix[0]] == 255:
-        return True
-    return False
-
-def is_free(im, pix):
+# -------------- Thresholded image pixel identification ---------------
+def is_wall(map, loc):
     """
-    Checks if the pixel is free.
-    @param im: The thresholded image
-    @param pix: The pixel coordinate as a tuple (x, y)
-    @return: True if the pixel is free (value == 255), False otherwise
+    Returns true if the location in the map is an obstacle
+
+    Parameters:
+        map (numpy.ndarray): The thresholded image
+        loc (tuple): The coordinate as an (x, y) pair
     """
-    if not isinstance(pix, tuple) or len(pix) != 2:
-        raise ValueError(f"Invalid pixel coordinate: {pix}")
-    
-    # Convert to integers
-    pix = (int(pix[0]), int(pix[1]))
-    
-    # Check bounds
-    if not (0 <= pix[1] < im.shape[0] and 0 <= pix[0] < im.shape[1]):
-        raise IndexError(f"Pixel {pix} is out of bounds for image shape {im.shape}")
-    
-    # Check if pixel is free
-    if im[pix[1], pix[0]] == 255:
+    if map[loc[1], loc[0]] == 0:
+        return True
+    return False
+
+def is_unseen(map, loc):
+    """
+    Returns true if the location in the map is unseen
+
+    Parameters:
+        map (numpy.ndarray): The thresholded image
+        loc (tuple): The coordinate as an (x, y) pair
+    """
+    if map[loc[1], loc[0]] == 128:
+        return True
+    return False
+
+def is_free(map, loc):
+    """
+    Returns true if the location in the map is free space
+
+    Parameters:
+        map (numpy.ndarray): The thresholded image
+        loc (tuple): The coordinate as an (x, y) pair
+    """
+    if map[loc[1], loc[0]] == 255:
         return True
     return False
 
 
-def convert_image(im, wall_threshold, free_threshold):
-    """ Convert the image to a thresholded image with not seen pixels marked
-    @param im - WXHX ?? image (depends on input)
-    @param wall_threshold - number between 0 and 1 to indicate wall
-    @param free_threshold - number between 0 and 1 to indicate free space
-    @return an image of the same WXH but with 0 (free) 255 (wall) 128 (unseen)"""
+# -------------- Occupancy grid to threshold image conversion ---------------
+def convert_image(occupancy_grid, wall_threshold, free_threshold):
+    """
+    Convert the OccupancyGrid to a thresholded image. Any points that have a confidence
+    level below what is required by the provided thresholds will be marked as unseen
+    space. The threshold image will have 3 values:
+        - 0 representing an obstacle
+        - 128 representing unseen space
+        - 255 representing free space
+
+    Parameters:
+        occupancy_grid (numpy.ndarray): An OccupancyGrid's data member resized to a 2D
+                                        array
+        wall_threshold (float): The threshold value for identifying walls.
+                                Expected to be in the range of [free_threshold, 1], where
+                                the float value indicates the certainty required to mark
+                                a point in space as an obstacle
+        free_threshold (float): The threshold value for identifying free space.
+                                Expected to be in the range of [0, wall_threshold], where
+                                (1 - the float value) indicates the certainty required to
+                                mark a point in space as free
+
+    Returns:
+        numpy.ndarray:  A thresholded image with values 0, 128, and 255
+                        The dimensions will match the occupancy_grid parameter
+    """
+    # Assume all is unseen
+    im_ret = np.zeros((occupancy_grid.shape[0], occupancy_grid.shape[1]), dtype='uint8') + 128
+
+    # Set cells with confidence above threshold values to free or obstacle
+    im_ret[occupancy_grid > wall_threshold] = 0
+    im_ret[(occupancy_grid < free_threshold) & (occupancy_grid != -1)] = 255
+    return im_ret
+
+def convert_map_to_configuration_space(occupancy_grid, wall_threshold, free_threshold, robot_dimension):
+    """
+    Convert the OccupancyGrid to a thresholded image in the configuration space.
+    Any points that have a confidence level below what is required by the provided
+    thresholds will be marked as unseen space. The threshold image will have 3 values:
+        - 0 represents an obstacle
+        - 128 represents unseen space
+        - 255 represents free space
+
+    Parameters:
+        occupancy_grid (numpy.ndarray): An OccupancyGrid's data member resized to a 2D
+                                        array
+        wall_threshold (float): The threshold value for identifying walls.
+                                Expected to be in the range of [free_threshold, 1], where
+                                the float value indicates the certainty required to mark
+                                a point in space as an obstacle
+        free_threshold (float): The threshold value for identifying free space.
+                                Expected to be in the range of [0, wall_threshold], where
+                                (1 - the float value) indicates the certainty required to
+                                mark a point in space as free
+        robot_dimension (int): The dimension of the robot in pixels. Used to inflate
+                               obstacles by (robot_dimension / 2) to ensure the robot's
+                               center point can safely navigate the configuration space
+
+    Returns:
+        numpy.ndarray:  A thresholded image with values 0, 128, and 255
+                        The dimensions will match the map parameter
+    """
 
     # Assume all is unseen
-    im_ret = np.zeros((im.shape[0], im.shape[1]), dtype='uint8') + 128
+    im_ret = np.zeros((occupancy_grid.shape[0], occupancy_grid.shape[1]), dtype='uint8') + 128
 
-    im_avg = im
-    if len(im.shape) == 3:
-        # RGB image - convert to gray scale
-        im_avg = np.mean(im, axis=2)
-    # Force into 0,1
-    im_avg = im_avg / np.max(im_avg)
-    # threshold
-    #   in our example image, black is walls, white is free
-    im_ret[im > wall_threshold] = 0
-    im_ret[(im < free_threshold) & (im != -1)] = 255
+    # Set cells with confidence above threshold values to free
+    im_ret[(occupancy_grid < free_threshold) & (occupancy_grid != -1)] = 255
+
+    # Use mask indicating walls to dilate the obstacles by robot_dimension / 2
+    wall_mask = (occupancy_grid > wall_threshold).astype(np.uint8)
+    kernel = np.ones((robot_dimension, robot_dimension), dtype='uint8')
+    dilated = cv2.dilate(wall_mask, kernel, iterations=1)
+    im_ret[dilated > 0] = 0
+    
     return im_ret
 
 
+# ----------------------- Getting neighbors -----------------------
+def get_neighbors(map, loc):
+    """
+    Returns a list of neighbors for a given location in the map
 
-# -------------- Getting 4 or 8 neighbors ---------------
-def four_connected(pix):
-    """ Generator function for 4 neighbors
-    @param im - the image
-    @param pix - the i, j location to iterate around"""
-    for i in [-1, 1]:
-        ret = pix[0] + i, pix[1]
-        yield ret
-    for i in [-1, 1]:
-        ret = pix[0], pix[1] + i
-        yield ret
-
-
-def eight_connected(pix):
-    """ Generator function for 8 neighbors
-    @param im - the image
-    @param pix - the i, j location to iterate around"""
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            if i == 0 and j == 0:
-                pass
-            ret = pix[0] + i, pix[1] + j
-            yield ret
-
-def get_neighbors(im, loc):
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        list: A list of tuples representing the neighbors as (x, y)
+    """
     i, j = loc
     neighbors = [
         (i-1, j),
-        (i+1, j), 
+        (i+1, j),
         (i, j-1),
         (i, j+1),
         (i-1, j-1),
@@ -182,219 +200,321 @@ def get_neighbors(im, loc):
         (i+1, j-1),
         (i+1, j+1)
     ]
-    return [n for n in neighbors if 0 <= n[0] < im.shape[0] and 0 <= n[1] < im.shape[1] and is_free(im, n)]
 
+    return [n for n in neighbors if 0 <= n[1] < map.shape[0] and 0 <= n[0] < map.shape[1]]
 
+def get_neighbors_with_cost(map, loc):
+    """
+    Returns a list of neighbors for a given location in the map with their cost to come
 
-def dijkstra(im, robot_loc, goal_loc, map_data):
-    """ Occupancy grid image, with robot and goal loc as pixels
-    @param im - the thresholded image - use is_free(i, j) to determine if in reachable node
-    @param robot_loc - where the robot is (tuple, i,j)
-    @param goal_loc - where to go to (tuple, i,j)
-    @returns a list of tuples"""
-
-    rospy.loginfo("Starting dijkstras")
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
     
-    robot_height_in_pixels = int(0.44 / map_data.resolution * 1.5)
+    Returns:
+        list: A list of tuples representing the neighbors as ((x, y), cost)
+    """
+    i, j = loc
+    root_2 = np.sqrt(2)
+    neighbors = [
+        ((i-1, j), 1),
+        ((i+1, j), 1),
+        ((i, j-1), 1),
+        ((i, j+1), 1),
+        ((i-1, j-1), root_2),
+        ((i-1, j+1), root_2),
+        ((i+1, j-1), root_2),
+        ((i+1, j+1), root_2)
+    ]
 
-    kernel = np.ones((robot_height_in_pixels, robot_height_in_pixels))
+    return [n for n in neighbors if 0 <= n[0][1] < map.shape[0] and 0 <= n[0][0] < map.shape[1]]
+
+def get_free_neighbors(map, loc):
+    """
+    Returns a list of neighbors in free space for a given location in the map
+
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
     
-    unseen_or_blocked_areas = (im == 0)
-    convolve_result = convolve(unseen_or_blocked_areas, kernel, mode='constant', cval=1)
-    free_areas = convolve_result == 0
+    Returns:
+        list: A list of tuples representing the free neighbors as (x, y)
+    """
+    i, j = loc
+    neighbors = [
+        (i-1, j),
+        (i+1, j),
+        (i, j-1),
+        (i, j+1),
+        (i-1, j-1),
+        (i-1, j+1),
+        (i+1, j-1),
+        (i+1, j+1)
+    ]
 
-    # free_areas = convolve(im, kernel, mode='constant', cval=0)
-    # free_areas = free_areas > 0
+    return [n for n in neighbors if 0 <= n[1] < map.shape[0] and 0 <= n[0] < map.shape[1] and is_free(map, n)]
 
-    goal_loc = (goal_loc[0], goal_loc[1])
+def get_free_neighbors_with_cost(map, loc):
+    """
+    Returns a list of neighbors in free space for a given location in the map
+    with their cost to come
 
-    # Sanity check
-    #if not is_free(im, robot_loc):
-    #    raise ValueError(f"Start location {robot_loc} is not in the free space of the map")
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        list: A list of tuples representing the neighbors as ((x, y), cost)
+    """
+    i, j = loc
+    root_2 = np.sqrt(2)
+    neighbors = [
+        ((i-1, j), 1),
+        ((i+1, j), 1),
+        ((i, j-1), 1),
+        ((i, j+1), 1),
+        ((i-1, j-1), root_2),
+        ((i-1, j+1), root_2),
+        ((i+1, j-1), root_2),
+        ((i+1, j+1), root_2)
+    ]
 
-    #if not is_free(im, goal_loc):
-    #    raise ValueError(f"Goal location {goal_loc} is not in the free space of the map")
+    return [n for n in neighbors if 0 <= n[0][1] < map.shape[0] and 0 <= n[0][0] < map.shape[1] and is_free(map, n[0])]
 
-    # The priority queue itself is just a list, with elements of the form (weight, (i,j))
-    #    - i.e., a tuple with the first element the weight/score, the second element a tuple with the pixel location
-    priority_queue = []
-    # Push the start node onto the queue
-    #   push takes the queue itself, then a tuple with the first element the priority value and the second
-    #   being whatever data you want to keep - in this case, the robot location, which is a tuple
-    heapq.heappush(priority_queue, (0, robot_loc))
+def has_free_neighbor(map, loc):
+    """
+    Returns a boolean indicating if a location in the map has a free neighbor
 
-    # The power of dictionaries - we're going to use a dictionary to store every node we've visited, along
-    #   with the node we came from and the current distance
-    # This is easier than trying to get the distance from the heap
-    visited = {}
-    # Use the (i,j) tuple to index the dictionary
-    #   Store the best distance, the parent, and if closed y/n
-    visited[robot_loc] = (0, None, False)   # For every other node this will be the current_node, distance
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        bool: True if the location has a free neighbor, False otherwise
+    """
+    height, width = map.shape
+    i, j = loc
 
-    # While the list is not empty - use a break for if the node is the end node
-    while priority_queue:
-        # Get the current best node off of the list
-        current_node = heapq.heappop(priority_queue)
-        # Pop returns the value and the i, j
-        node_score = current_node[0]
-        node_ij = current_node[1]
+    i_min = max(0, i-1)
+    i_max = min(height, i+2)
+    j_min = max(0, j-1)
+    j_max = min(width, j+2)
+    
+    for x in range(i_min, i_max):
+        for y in range(j_min, j_max):
+            if (x, y) != loc and map[y, x] == 255:
+                return True
+    return False
 
-        # Showing how to get this data back out of visited
-        visited_triplet = visited[node_ij]
-        visited_distance = visited_triplet[0]
-        visited_parent = visited_triplet[1]
-        visited_closed_yn = visited_triplet[2]
+def has_unseen_neighbor(map, loc):
+    """
+    Returns a boolean indicating if a location in the map has an unseen neighbor
 
-        #  Step 1: Break out of the loop if node_ij is the goal node
-        if node_ij == goal_loc:
-            break
+    Parameters:
+        map (numpy.ndarray): The image
+        loc (tuple): The location as a tuple (x, y)
+    
+    Returns:
+        bool: True if the location has an unseen neighbor, False otherwise
+    """
+    height, width = map.shape
+    i, j = loc
 
-        #  Step 2: If this node is closed, skip it
-        if visited_closed_yn:
-            continue
+    i_min = max(0, i-1)
+    i_max = min(height, i+2)
+    j_min = max(0, j-1)
+    j_max = min(width, j+2)
+    
+    for x in range(i_min, i_max):
+        for y in range(j_min, j_max):
+            if (x, y) != loc and map[y, x] == 128:
+                return True
+    return False
 
-        #  Step 3: Set the node to closed
-        visited[node_ij] = (visited_distance, visited_parent, True)
+# ----------------------- A* Path Helpers ------------------------
+def generate_alternate_goal(visited_points, goal):
+    """
+    Returns the point in the visited_points list closest to the goal
 
-        #    Now do the instructions from the slide (the actual algorithm)
-        #  Lec 8_1: Planning, at the end
-        #  https://docs.google.com/presentation/d/1pt8AcSKS2TbKpTAVV190pRHgS_M38ldtHQHIltcYH6Y/edit#slide=id.g18d0c3a1e7d_0_0
-        for di in [-1, 0, 1]:
-            for dj in [-1, 0, 1]:
-                # Don't do anything for the case where we don't move
-                if di == 0 and dj == 0:
-                    continue
-                
-                neighbor = (node_ij[0] + di, node_ij[1] + dj)
-                
-                # Check if neighbor in direction (di, dj) is valid and free
-                if not is_free(im, (neighbor)):
-                    continue
+    Parameters:
+        visited_points (numpy.ndarray): (x, y) pairs that were reachable
+        goal: (x, y) of the goal that was found to be unreachable
 
-                if not free_areas[neighbor[1], neighbor[0]]:
-                    if neighbor == goal_loc:
-                        rospy.logerr("Skipping goal_loc")
-                    continue
-                    
-                # if free_areas[im[1], im[0]] == 0:
-                #     continue
+    Returns:
+        tuple: (x, y) of the point closest to the goal
+    """
+    distances = np.linalg.norm(visited_points - goal, axis=1)
 
-                # Calculate distance to neighbor and distance to goal and add them to existing cost
-                distance = np.linalg.norm((di, dj)) + visited_distance
-                heuristic = np.linalg.norm((neighbor[0] - goal_loc[0], neighbor[1] - goal_loc[1]))
-                
-                # If we haven't tried this path add it to the queue
-                if neighbor not in visited or distance < visited[neighbor][0]:
-                    visited[neighbor] = (distance, node_ij, False)
-                    heapq.heappush(priority_queue, (distance + heuristic, neighbor))
+    return tuple(visited_points[np.argmin(distances)])
 
-    # Now check that we actually found the goal node, if not make a path as close as possible
-    if not goal_loc in visited:
-        old_goal_loc = goal_loc
-        visited_points = np.array(list(visited.keys()))
-        distances = np.linalg.norm(visited_points - goal_loc)
-        goal_loc = visited_points[np.argmin(distances)]
-        ## rospy.loginfo(f"Recursing dijkstra")
-        ## return dijkstra(im, robot_loc, ((goal_loc[0] + robot_loc[0]) // 2, (goal_loc[1] + robot_loc[1]) // 2), map_data)
-        # goal_loc = tuple(find_highest_concentration_point(visited.keys(), im, map_data, radius=0.25))
-        rospy.logerr(f"Goal {old_goal_loc} was unreachable, sending {goal_loc} instead")
-        rospy.logerr(f"Length of visited is {len(visited)}")
+def reconstruct_path(visited, goal, map_metadata):
+    """
+    Given the visited data structure, a goal location, and map metadata, returns a path
+    from the robot's location to the goal.
 
-        rospy.loginfo("Saving visited points visualization")
-
-        fig, ax = plt.subplots()
-
-        # Plot the base image/map
-        plt.imshow(im[1800:2200, 1800:2200], cmap='plasma')
-
-        # Plot visited points in blue
-        ax.scatter(visited_points[:, 0] - 1800, visited_points[:, 1] - 1800, 
-                color='blue', marker='.', s=0.25, alpha=0.5)
-
-        # Plot robot location with yellow star
-        ax.scatter([robot_loc[0] - 1800], [robot_loc[1] - 1800], 
-                color='yellow', marker='*', s=100)
-
-        # Plot goal location with green star
-        ax.scatter([old_goal_loc[0] - 1800], [old_goal_loc[1] - 1800], 
-                color='green', marker='*', s=100)
-
-        ax.invert_yaxis()
-        plt.colorbar()
-        plt.savefig(os.path.expanduser("~/ros_ws/src/lab3/images/visited_points.png"))
-        rospy.loginfo(f"im shape: {im.shape}")
-        rospy.loginfo("Saved visited points visualization")
-        
+    Parameters:
+        visited (dict): A dictionary of (x, y) pairs mapped to (_, parent_node, _), where
+                        the robot's starting location has a parent of None
+        goal (tuple): (x, y) pair representing the goal location
+        map_metadata (MapMetadata): The current map metadata
+    """
     path = []
-    current = tuple(goal_loc)
-    # While there's a parent
+    current = goal
     while current is not None:
-        current_x_in_space = current[0] * map_data.resolution + map_data.origin.position.x
-        current_y_in_space = current[1] * map_data.resolution + map_data.origin.position.y
-        path.insert(0, (current_x_in_space, current_y_in_space))
+        # Convert point from map space to free space
+        current_x_in_space = current[0] * map_metadata.resolution + map_metadata.origin.position.x
+        current_y_in_space = current[1] * map_metadata.resolution + map_metadata.origin.position.y
+
+        path.append((current_x_in_space, current_y_in_space))
         current = visited[current][1]
+
+    # We construct the path from the goal to the robot, but need the reverse
+    path.reverse()
 
     return path
 
-def open_image(im_name):
-    """ A helper function to open up the image and the yaml file and threshold
-    @param im_name - name of image in Data directory
-    @returns image anbd thresholded image"""
-
-    # Needed for reading in map info
-    from os import open
-
-    im = imageio.imread("Data/" + im_name)
-
-    wall_threshold = 0.7
-    free_threshold = 0.9
-    try:
-        yaml_name = "Data/" + im_name[0:-3] + "yaml"
-        with open(yaml_name, "r") as f:
-            dict = yaml.load_all(f)
-            wall_threshold = dict["occupied_thresh"]
-            free_threshold = dict["free_thresh"]
-    except:
-        pass
-
-    im_thresh = convert_image(im, wall_threshold, free_threshold)
-    return im, im_thresh
-
-
-
-if __name__ == '__main__':
-    # Putting this here because in JN it's yaml
-    import yaml_1 as yaml
-
-    # Use one of these
-
-    """ Values for SLAM map
-    im, im_thresh = open_image("SLAM_map.png")
-    robot_start_loc = (200, 150)
-    # Closer one to try
-    # robot_goal_loc = (315, 250)
-    robot_goal_loc = (615, 850)
-    zoom = 0.8
+def a_star(map, robot_loc, goal, map_metadata):
     """
+    Use A* to find the shortest path from the robot's location to the goal. If the goal
+    is not adjacent to free space, the goal will be adjusted to the closest point in free
+    space to the goal. All parameters and return values are expected to be in the map
+    space.
 
-    """ Values for map.pgm"""
-    im, im_thresh = open_image("map.pgm")
-    robot_start_loc = (1940, 1953)
-    robot_goal_loc = (2135, 2045)
-    zoom = 0.1
-
+    Parameters:
+        map (numpy.ndarray): A thresholded image in the configuration space of the robot
+        robot_loc (tuple): The location of the robot as (x, y) coordinates
+        goal (tuple): The target location as (x, y) coordinates
+        map_metadata (MapMetadata): The current map metadata
+    Returns:
+        list: A list of tuples representing the path from the robot's location to the
+              goal location
     """
-    print(f"Image shape {im_thresh.shape}")
-    for i in range(0, im_thresh.shape[1]-1):
-        for j in range(0, im_thresh.shape[0]-1):
-            if is_free(im_thresh, (i, j)):
-                print(f"Free {i} {j}")
+    # Initialize data structures for A*
+    # visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
+    priority_queue = []
+    heapq.heappush(priority_queue, (0, robot_loc))
+    visited = {robot_loc: (0, None, False)}
+
+    # While the list is not empty - use a break for if the node is the end node
+    while priority_queue:
+        _, curr_node = heapq.heappop(priority_queue)
+        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
+
+        # If this node is closed, skip it
+        if curr_node_closed:
+            continue
+
+        # NOTE: After refactoring new_find_best_point to select known free space as the
+        # goal, we can change this for a direct comparison between goal and curr_node
+        # If we found the goal, stop
+        if goal in get_neighbors(map, curr_node):
+            # We don't want to park on the goal, it might not be a safe area
+            goal = curr_node
+            break
+
+        # Close this node
+        visited[curr_node] = (curr_node_distance, curr_node_parent, True)
+
+        # We use get_free_neighbors, so we don't have to check if nodes are obstacles
+        for neighbor, neighbor_cost in get_free_neighbors_with_cost(map, curr_node):
+                # If a neighbor is closed, skip it
+                if visited.get(neighbor, (0, None, False))[1]:
+                    continue
+                
+                # Calculate distance from robot
+                distance = curr_node_distance + neighbor_cost
+
+                # If we haven't visited this neighbor or found a shorter route to it, update it
+                if neighbor not in visited or distance < visited[neighbor][0]:
+                    heuristic = np.linalg.norm((neighbor[0] - goal[0], neighbor[1] - goal[1]))
+                    visited[neighbor] = (distance, curr_node, False)
+                    heapq.heappush(priority_queue, (distance + heuristic, neighbor))
+
+
+    # If we can't path to the goal, path as close to the goal as possible
+    if not goal in visited:
+        old_goal = goal
+        visited_points = np.array(list(visited.keys()))
+
+        goal = generate_alternate_goal(visited_points, goal)
+        
+        rospy.logerr(f"Goal {old_goal} was unreachable; routing to {goal} instead.")
+        save_map_as_debug_image("visited_points", map, visited_points, old_goal, robot_loc)
+
+    # Reconstruct the path to the goal using the parent nodes stored in visited
+    path = reconstruct_path(visited, goal, map_metadata)
+
+    return path
+
+def multi_goal_a_star(map, robot_loc, goals):
     """
-    path = dijkstra(im_thresh, robot_start_loc, robot_goal_loc)
-    plot_with_path(im, im_thresh, zoom=zoom, robot_loc=robot_start_loc, goal_loc=robot_goal_loc, path=path)
+    Use A* to get the distance to a set of points from the robot's location. This
+    function is intended to be used for state updation, or when you want to maintain the
+    distances of points to the robot's location. All parameters and return values are
+    expected to be in the map space. Unreachable goal points will be discarded from the
+    return value.
 
-    # Depending on if your mac, windows, linux, and if interactive is true, you may need to call this to get the plt
-    # windows to show
-    # plt.show()
+    Parameters:
+        map (numpy.ndarray): A thresholded image in the configuration space of the robot
+        robot_loc (tuple): The location of the robot as (x, y) coordinates
+        goals (set): A set of (x, y) pairs representing target locations
 
-    print("Done")
+    Returns:
+        dict: A mapping of (x, y) pairs to distances from the robot location. Goals that
+              require traveling through obstacles to reach will be discarded.
+    """
+    # Initialize data structures for multi-goal A*
+    # visited stores (distance from robot, is node closed)
+    # goal_distances maps goals to their distance from the robot
+    priority_queue = [(0, robot_loc)]
+    visited = {robot_loc: (0, False)}
+    remaining_goals = np.array(list(goals))
+    goal_distances = {}
+    
+    while priority_queue and len(remaining_goals):
+        _, curr_node = heapq.heappop(priority_queue)
+        curr_node_distance, curr_node_closed = visited[curr_node]
+
+        # If this node is closed, skip it
+        if curr_node_closed:
+            continue
+
+        # Check if this is a goal node we haven't found yet
+        if np.any(np.all(remaining_goals == curr_node, axis=1)):
+            # Store distance from the robot to the goal
+            goal_distances[curr_node] = curr_node_distance
+
+            # Remove curr_node while maintaining shape of remaining_goals
+            mask = ~np.all(remaining_goals == curr_node, axis=1)
+            remaining_goals = remaining_goals[mask]
+
+            if len(remaining_goals) == 0:
+                break
+
+        # Close this node
+        visited[curr_node] = (curr_node_distance, True)
+
+        # NOTE: When we change exploring.py to select known free space as goal and we do the thing where we don't process neighbors of rejected goals,
+        #       we should be able to change this to not is_free instead because points in unknown space won't make it in the PQ and we will only path through free space
+        # We use get_neighbors because there is a chance for a goal to be in unseen space
+        for neighbor, neighbor_cost in get_neighbors_with_cost(map, curr_node):
+            # If a neighbor is closed, skip it
+            if visited.get(neighbor, (0, False))[1]:
+                continue
+
+            # Skip obstacles since we can't pass through them
+            if is_wall(map, neighbor):
+                continue
+
+            # Calculate distance from robot
+            distance = curr_node_distance + neighbor_cost
+
+            # If we haven't visited this neighbor or found a shorter route to it, update it
+            if neighbor not in visited or distance < visited[neighbor][0]:
+                visited[neighbor] = (distance, False)
+
+                # Use minimum distance to any remaining goal as heuristic
+                heuristic = min(np.linalg.norm(remaining_goals - neighbor, axis=1))
+                heapq.heappush(priority_queue, (distance + heuristic, neighbor))
+    
+    return goal_distances
