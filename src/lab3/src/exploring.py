@@ -126,8 +126,8 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
         visited[robot_loc] = (0, robot_loc_closed)
 
     while priority_queue and goal is None:
-        _, curr_node = heapq.heappop(priority_queue)
-        curr_node_distance, curr_node_closed = visited[curr_node]
+        curr_node_distance, curr_node = heapq.heappop(priority_queue)
+        _, curr_node_closed = visited[curr_node]
 
         # If this node is closed, skip it
         if curr_node_closed:
@@ -147,6 +147,7 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
         else:
             visited[curr_node] = (curr_node_distance, True)
 
+        # Add neighbors to the priority queue
         for neighbor, neighbor_cost in path_planning.get_free_neighbors_with_cost(map, curr_node):
             neighbor_distance = curr_node_distance + neighbor_cost
 
