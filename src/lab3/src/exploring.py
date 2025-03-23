@@ -111,10 +111,9 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
     furthest_rejected_goal = None
     goal = None
 
-    # Updating distance from robot for all points in priority queue
-    # TODO: Can we remove the is_wall check now that we only process free spaces?
+    # Update distance from robot to all points in priority queue if they are free and not closed
     if len(priority_queue) > 0:
-        points = set(p[1] for p in priority_queue if not visited[p[1]][1] and not path_planning.is_wall(map, p[1]))
+        points = set(p[1] for p in priority_queue if not visited[p[1]][1] and path_planning.is_free(map, p[1]))
         distances = path_planning.multi_goal_a_star(map, robot_loc, points)
         priority_queue = [(distance, point) for point, distance in distances.items()]
         heapq.heapify(priority_queue)

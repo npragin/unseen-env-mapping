@@ -494,16 +494,10 @@ def multi_goal_a_star(map, robot_loc, goals):
         # Close this node
         visited[curr_node] = (curr_node_distance, True)
 
-        # NOTE: When we change exploring.py to select known free space as goal and we do the thing where we don't process neighbors of rejected goals,
-        #       we should be able to change this to not is_free instead because points in unknown space won't make it in the PQ and we will only path through free space
-        # We use get_neighbors because there is a chance for a goal to be in unseen space
-        for neighbor, neighbor_cost in get_neighbors_with_cost(map, curr_node):
+        # Add neighbors in free space to priority queue
+        for neighbor, neighbor_cost in get_free_neighbors_with_cost(map, curr_node):
             # If a neighbor is closed, skip it
             if visited.get(neighbor, (0, False))[1]:
-                continue
-
-            # Skip obstacles since we can't pass through them
-            if is_wall(map, neighbor):
                 continue
 
             # Calculate distance from robot
@@ -516,5 +510,5 @@ def multi_goal_a_star(map, robot_loc, goals):
                 # Use minimum distance to any remaining goal as heuristic
                 heuristic = min(np.linalg.norm(remaining_goals - neighbor, axis=1))
                 heapq.heappush(priority_queue, (distance + heuristic, neighbor))
-    
+
     return goal_distances
