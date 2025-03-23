@@ -397,8 +397,8 @@ def a_star(map, robot_loc, goal, map_metadata):
 
     # While the list is not empty - use a break for if the node is the end node
     while priority_queue:
-        curr_node_distance, curr_node = heapq.heappop(priority_queue)
-        _, curr_node_parent, curr_node_closed = visited[curr_node]
+        _, curr_node = heapq.heappop(priority_queue)
+        curr_node_distance, curr_node_parent, curr_node_closed = visited[curr_node]
 
         # If this node is closed, skip it
         if curr_node_closed:
@@ -472,8 +472,8 @@ def multi_goal_a_star(map, robot_loc, goals):
     goal_distances = {}
     
     while priority_queue and len(remaining_goals):
-        curr_node_distance, curr_node = heapq.heappop(priority_queue)
-        _, curr_node_closed = visited[curr_node]
+        _, curr_node = heapq.heappop(priority_queue)
+        curr_node_distance, curr_node_closed = visited[curr_node]
 
         # If this node is closed, skip it
         if curr_node_closed:
