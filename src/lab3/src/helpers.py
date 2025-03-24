@@ -7,7 +7,7 @@ def world_to_map(x, y, map_metadata):
     out_of_bounds = x_out_of_bounds or y_out_of_bounds
 
     if out_of_bounds:
-        return None
+        raise Exception("Conversion from world to map coordinate frame resulted in a point outside of the map")
 
     return (grid_x, grid_y)
 
