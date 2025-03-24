@@ -59,7 +59,7 @@ def plot_with_explore_points(map, zoom=1.0, robot_loc=None, candidate_points=Non
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
 # --------------------------------------- Goal point selection ---------------------------------------
-def find_frontier_points(map):
+def find_frontier_points_convolution(map):
     """
     Given a thresholded image of a map, this function returns a list of all frontier
     points. A frontier point is a point in free space adjacent to unseen space.
