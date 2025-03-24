@@ -114,7 +114,7 @@ class StudentDriver(Driver):
 			# for the robot to continue toward the goal. Using this angle, we can determine
 			# the number of adjacent scans that must have a reading greater than the
 			# obstacle threshold to consider that direction safe.
-			angle_of_concern = 2 * abs(np.arctan(d / 2 / obstacle_distance))
+			angle_of_concern = 2 * abs(np.arctan(obstacle_threshold / 2 / obstacle_distance))
 			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
 			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
 
