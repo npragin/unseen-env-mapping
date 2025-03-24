@@ -99,10 +99,6 @@ visited = {}
 priority_queue = []
 
 def new_find_best_point(map, robot_loc, distance_restriction=0):
-    # NOTE: When refactoring this, test that multi goal A* doesn't start dropping points
-    # NOTE: Also check if we ever get unseen nodes in multi goal A*
-    # NOTE: Check if we increased the computation time significantly
-    # NOTE: There are changes to make in multi-goal A* and regular A* after the refactor is done here, marked by NOTE
 
     # Initialize data structures for Dijkstra
     # Visited stores (distance from robot, is node closed) and is indexed using (x, y) tuple
