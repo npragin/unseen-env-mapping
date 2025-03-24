@@ -264,7 +264,6 @@ def generate_waypoints(path):
     """
     waypoints = []
 
-    # TODO: Smooth it out better by either repeating this or doing the cross between longer vectors (i + 2 and i - 2)
     for i in range(1, len(path) - 1):
         v1 = calculate_vector(path[i - 1], path[i])
         v2 = calculate_vector(path[i], path[i + 1])
