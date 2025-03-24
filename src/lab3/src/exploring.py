@@ -109,6 +109,7 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
     global visited, priority_queue
     candidate_goals = []
     furthest_rejected_goal = None
+    furthest_rejected_goal_dist = 0
     goal = None
 
     # Update distance from robot to all points in priority queue if they are free and not closed
@@ -139,8 +140,9 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
         if path_planning.has_unseen_neighbor(map, curr_node):
             if curr_node_distance >= distance_restriction:
                 goal = curr_node
-            elif furthest_rejected_goal is None or curr_node_distance > visited[furthest_rejected_goal][0]:
+            elif furthest_rejected_goal is None or curr_node_distance > furthest_rejected_goal_dist:
                     furthest_rejected_goal = curr_node
+                    furthest_rejected_goal_dist = curr_node_distance
             candidate_goals.append(curr_node)
             continue
         else:
