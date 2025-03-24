@@ -20,6 +20,33 @@ def map_to_world(index, map_metadata):
 
     return (world_x, world_y)
 
+def find_nearest_free_space(map, loc):
+    from path_planning import get_neighbors_with_cost, is_free
+    import heapq
+
+    open = [(0, loc)]
+    visited = {loc: (False, 0)}
+
+    while open:
+        curr_dist, curr = heapq.heappop(open)
+        curr_closed, _ = visited[curr]
+
+        if curr_closed:
+            continue
+
+        if is_free(map, curr):
+            return curr
+        
+        for neighbor, cost in get_neighbors_with_cost(map, curr):
+            neighbor_cost = curr_dist + cost
+            if neighbor not in visited or neighbor_cost < visited[neighbor][1]:
+                heapq.heappush(open, (neighbor_cost, neighbor))
+                visited[neighbor] = (False, neighbor_cost)
+
+        visited[curr] = (True, visited[curr][1])
+
+    raise Exception("Could not find free space")
+
 def save_map_as_debug_image(filename, map, points=None, green_star=None, yellow_star=None):
     import matplotlib.pyplot as plt
     import rospy

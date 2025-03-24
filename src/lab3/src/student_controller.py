@@ -7,9 +7,9 @@ import numpy as np
 
 from controller import RobotController
 #Import path_planning and exploring code
-from path_planning import a_star, convert_map_to_configuration_space
+from path_planning import a_star, convert_map_to_configuration_space, is_free
 from exploring import new_find_best_point, generate_waypoints, find_frontier_points, find_highest_information_gain_point, find_closest_point, find_furthest_point
-from helpers import world_to_map, save_map_as_image
+from helpers import world_to_map, save_map_as_image, find_nearest_free_space
 import time
 from math import ceil
 
@@ -95,6 +95,9 @@ class StudentController(RobotController):
 				# rotate in place
 				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_metadata.resolution)
 				config_space_map = convert_map_to_configuration_space(occupancy_grid, 0.8, 0.2, robot_diagonal_length_in_pixels)
+
+				if not is_free(config_space_map, self._robot_position_map):
+					self._robot_position_map = find_nearest_free_space(config_space_map, self._robot_position_map)
 
 				rospy.loginfo(f"Selecting goal point")
 				'''
