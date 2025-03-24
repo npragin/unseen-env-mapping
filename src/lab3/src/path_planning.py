@@ -404,12 +404,8 @@ def a_star(map, robot_loc, goal, map_metadata):
         if curr_node_closed:
             continue
 
-        # NOTE: After refactoring new_find_best_point to select known free space as the
-        # goal, we can change this for a direct comparison between goal and curr_node
         # If we found the goal, stop
-        if goal in get_neighbors(map, curr_node):
-            # We don't want to park on the goal, it might not be a safe area
-            goal = curr_node
+        if curr_node == goal:
             break
 
         # Close this node
