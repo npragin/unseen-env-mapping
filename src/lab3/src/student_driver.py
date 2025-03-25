@@ -22,6 +22,8 @@ class StudentDriver(Driver):
 		self._robot_length = 0.44
 		self._robot_diagonal_length = np.linalg.norm((self._robot_length, self._robot_width))
 
+		self._lidar_offset = self._robot_diagonal_length / 2
+
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		"""
 		Determines if the robot is close enough to the waypoint to mark it as complete.
@@ -79,8 +81,7 @@ class StudentDriver(Driver):
 		# this distance with some trigonometry to gather the indices of lidar readings
 		# that correspond to scans in front of the robot and have a reading less than the
 		# obstacle threshold. See issue #55 for more info.
-		lidar_offset = d / 2
-		obstacle_threshold = d / 2 + lidar_offset
+		obstacle_threshold = d / 2 + self._lidar_offset
 		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= d/2) & (ranges < obstacle_threshold))[0]
 
 		# The angle from the robot to the target point
@@ -108,7 +109,7 @@ class StudentDriver(Driver):
 			# the scans in front of the robot. Subtract half the lidar offset from the
 			# minimum distance to an obstacle to account for the fact that the lidar is
 			# in the center of the robot, so the obstacle is closer than the lidar reading indicates.
-			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - lidar_offset
+			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - self._lidar_offset
 
 			# Given the obstacle distance and the robot's diagonal length, we can calculate
 			# the "angle of concern," the angle of the cone that must be free of obstacles
