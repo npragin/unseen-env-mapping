@@ -357,6 +357,10 @@ def reconstruct_path(visited, goal, map_metadata):
                         the robot's starting location has a parent of None
         goal (tuple): (x, y) pair representing the goal location
         map_metadata (MapMetadata): The current map metadata
+    
+    Returns:
+        numpy.ndarray: A list of tuples representing the path from the robot's location to the
+                       goal location
     """
     path = []
     current = goal
@@ -370,6 +374,8 @@ def reconstruct_path(visited, goal, map_metadata):
 
     # We construct the path from the goal to the robot, but need the reverse
     path.reverse()
+
+    path = np.array(path)
 
     return path
 
@@ -386,8 +392,8 @@ def a_star(map, robot_loc, goal, map_metadata):
         goal (tuple): The target location as (x, y) coordinates
         map_metadata (MapMetadata): The current map metadata
     Returns:
-        list: A list of tuples representing the path from the robot's location to the
-              goal location
+        numpy.ndarray: A list of tuples representing the path from the robot's location to the
+                       goal location
     """
     # Initialize data structures for A*
     # visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
