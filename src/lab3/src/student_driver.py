@@ -152,8 +152,8 @@ class StudentDriver(Driver):
 
 			# Use a carefully tuned tanh function to turn faster as obstacles get closer
 			# and drive slower as obstacles get closer.
-			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) + 1 if safe_direction > 0 else -1
-			command.linear.x = 0.5 * tanh(1 * (1 / obstacle_distance)) if obstacle_distance > 0.25 else 0
+			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) * (1 if safe_direction > 0 else -1)
+			command.linear.x = 0.5 * tanh(1 * obstacle_distance) if obstacle_distance > 0.25 else 0
 
 		return command
 
