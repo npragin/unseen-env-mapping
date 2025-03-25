@@ -20,6 +20,17 @@ def map_to_world(index, map_metadata):
 
     return (world_x, world_y)
 
+def path_from_map_to_world(path, map_metadata):
+    new_path = []
+
+    for p in path:
+        p_x_in_space = p[0] * map_metadata.resolution + map_metadata.origin.position.x
+        p_y_in_space = p[1] * map_metadata.resolution + map_metadata.origin.position.y
+
+        new_path.append((p_x_in_space, p_y_in_space))
+    
+    return new_path
+
 def find_nearest_free_space(map, loc):
     from path_planning import get_neighbors_with_cost, is_free
     import heapq

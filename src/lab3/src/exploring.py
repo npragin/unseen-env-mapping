@@ -247,30 +247,75 @@ def calculate_vector(point1, point2):
     """
     return (point2[0] - point1[0], point2[1] - point1[1])
 
-def generate_waypoints(path):
+def generate_waypoints(map, path):
     """
-    Generate a lower resolution path by placing waypoints where the direction changes
+    Generate a lower resolution path using a Line-of-Sight algorithm
 
     Parameters:
-        path (list): A list of points as (x, y) pairs representing the initial path.
-                     The first point is assumed to be the start location.
+        path (numpy.ndarray): A list of points as (x, y) pairs representing the initial
+                              path. The first point is assumed to be the start location.
 
     Returns:
-        list: A simplified path containing only points where direction changes, excluding
-              the start location but including the goal point.
+        list: A simplified path containing only the points needed to maintain line of
+              sight with the next point. Includes the start and the goal points.
     """
-    waypoints = []
+    if len(path) <= 2:
+        return path
 
-    for i in range(1, len(path) - 1):
-        v1 = calculate_vector(path[i - 1], path[i])
-        v2 = calculate_vector(path[i], path[i + 1])
-        
-        # Check if vectors are not collinear using cross product
-        # Add point to the path if the path's direction changes at that point
-        if np.cross(v1, v2) != 0:
-            waypoints.append(path[i])
+    # Include the start point
+    waypoints = [path[0]]
 
-    # Append the goal point
-    waypoints.append(path[-1])
+    current_index = 0
+    while current_index < len(path) - 1:
+        # Find the furthest point that has line of sight from the current waypoint using
+        # the next point as the default
+        furthest_index = current_index + 1
+        for j in range(len(path) - 1, current_index, -1):
+            if has_line_of_sight(map, path[current_index], path[j]):
+                furthest_index = j
+                break
+
+        waypoints.append(path[furthest_index])
+        current_index = furthest_index
 
     return waypoints
+
+def has_line_of_sight(map, start, end):
+    """
+    Check if there's a clear line of sight from start to end using Bresenham's algorithm
+    
+    Parameters:
+        map (numpy.ndarray): The thresholded image of the map
+        start (tuple): (x, y) pair representing the start of the line
+        end (tuple): (x, y) pair representing the end of the line
+        
+    Returns:
+        bool: True if there's line of sight, False otherwise
+    """
+    x0, y0 = start
+    x1, y1 = end
+
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+
+    x, y = x0, y0
+
+    while True:
+        if path_planning.is_wall(map, (x, y)):
+            return False
+
+        if x == x1 and y == y1:
+            break
+
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x += sx
+        if e2 < dx:
+            err += dx
+            y += sy
+
+    return True

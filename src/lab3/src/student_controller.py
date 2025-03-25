@@ -9,7 +9,7 @@ from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import a_star, convert_map_to_configuration_space, is_free
 from exploring import new_find_best_point, generate_waypoints, find_frontier_points_convolution, find_highest_information_gain_point, find_closest_point, find_furthest_point
-from helpers import world_to_map, save_map_as_image, find_nearest_free_space
+from helpers import world_to_map, save_map_as_image, find_nearest_free_space, path_from_map_to_world
 import time
 from math import ceil, floor
 
@@ -132,8 +132,9 @@ class StudentController(RobotController):
 				rospy.loginfo("Starting A*")
 				path = a_star(config_space_map, self._robot_position_map, goal_point, map_metadata)
 
-				# Chop the path into waypoints
-				waypoints = generate_waypoints(path)
+				# Chop the path into waypoints and convert it to the world frame
+				waypoints = generate_waypoints(config_space_map, path)
+				waypoints = path_from_map_to_world(waypoints, map_metadata)
 				self.set_waypoints(waypoints)
 
 				# Update time since we last made progress, again
