@@ -11,7 +11,7 @@ from path_planning import a_star, convert_map_to_configuration_space, is_free
 from exploring import new_find_best_point, generate_waypoints, find_frontier_points_convolution, find_highest_information_gain_point, find_closest_point, find_furthest_point
 from helpers import world_to_map, save_map_as_image, find_nearest_free_space
 import time
-from math import ceil
+from math import ceil, floor
 
 class StudentController(RobotController):
 	'''
@@ -24,8 +24,8 @@ class StudentController(RobotController):
 		self._robot_position_map = None
 
 		self._robot_width_in_meters = 0.38
-		self._robot_height_in_meters = 0.44
-		self._robot_diagonal_length_in_meters = np.linalg.norm((self._robot_width_in_meters, self._robot_height_in_meters))
+		self._robot_length_in_meters = 0.44
+		self._robot_diagonal_length_in_meters = np.linalg.norm((self._robot_width_in_meters, self._robot_length_in_meters))
 
 		# We want to keep track of progress towards the goal to understand if we are stuck
 		self._last_distance_reading = 0
@@ -90,11 +90,14 @@ class StudentController(RobotController):
 				# Convert the map to a 2D numpy array
 				occupancy_grid = np.array(map.data).reshape(map_metadata.height, map_metadata.width)
 
+				# Calculate robot radii for future use
+				robot_diagonal_length_in_pixels = self._robot_diagonal_length_in_meters / map_metadata.resolution
+				maximal_robot_radius_in_pixels = ceil(robot_diagonal_length_in_pixels / 2)
+				minimal_robot_radius_in_meters = floor(min(self._robot_length_in_meters, self._robot_width_in_meters) / 2)
+
 				# Convert the map to a threshold image in the configuration space using
-				# the robot's diagonal length to ensure the robot can always safely
-				# rotate in place
-				robot_diagonal_length_in_pixels = ceil(self._robot_diagonal_length_in_meters / map_metadata.resolution)
-				config_space_map = convert_map_to_configuration_space(occupancy_grid, 0.8, 0.2, robot_diagonal_length_in_pixels)
+				# the maximal diameter to ensure the robot can always safely rotate in place
+				config_space_map = convert_map_to_configuration_space(occupancy_grid, 0.8, 0.2, maximal_robot_radius_in_pixels * 2)
 
 				if not is_free(config_space_map, self._robot_position_map):
 					self._robot_position_map = find_nearest_free_space(config_space_map, self._robot_position_map)
@@ -126,8 +129,8 @@ class StudentController(RobotController):
 						rospy.logerr(f"Failed to save map as image.")
 					self._shutdown_all_nodes()
 
-				rospy.loginfo("Starting A*")
 				# Generate a path to the goal point
+				rospy.loginfo("Starting A*")
 				path = a_star(config_space_map, self._robot_position_map, goal_point, map_metadata)
 
 				# Chop the path into waypoints
