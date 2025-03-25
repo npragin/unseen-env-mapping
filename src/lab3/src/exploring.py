@@ -95,14 +95,13 @@ def find_frontier_points_convolution(map):
 
     return frontier_points
 
-visited = {}
+is_closed = {}
 priority_queue = []
 
 def new_find_best_point(map, robot_loc, distance_restriction=0):
-
     # Initialize data structures for Dijkstra
-    # Visited stores (distance from robot, is node closed) and is indexed using (x, y) tuple
-    global visited, priority_queue
+    # is_closed is indexed using (x, y) tuple
+    global is_closed, priority_queue
     candidate_goals = []
     furthest_rejected_goal = None
     furthest_rejected_goal_dist = 0
@@ -110,20 +109,20 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
 
     # Update distance from robot to all points in priority queue if they are free and not closed
     if len(priority_queue) > 0:
-        points = set(p[1] for p in priority_queue if not visited[p[1]][1] and path_planning.is_free(map, p[1]))
+        points = set(p[1] for p in priority_queue if not is_closed[p[1]] and path_planning.is_free(map, p[1]))
         distances = path_planning.multi_goal_a_star(map, robot_loc, points)
         priority_queue = [(distance, point) for point, distance in distances.items()]
         heapq.heapify(priority_queue)
 
     # Add robot_loc to the priority queue to start the search there if it isn't closed
-    robot_loc_closed = visited.get(robot_loc, (0, False))[1]
+    robot_loc_closed = is_closed.get(robot_loc, False)
     if not robot_loc_closed:
         heapq.heappush(priority_queue, (0, robot_loc))
-        visited[robot_loc] = (0, robot_loc_closed)
+        is_closed[robot_loc] = False
 
     while priority_queue and goal is None:
         curr_node_distance, curr_node = heapq.heappop(priority_queue)
-        _, curr_node_closed = visited[curr_node]
+        curr_node_closed = is_closed[curr_node]
 
         # If this node is closed, skip it
         if curr_node_closed:
@@ -142,19 +141,21 @@ def new_find_best_point(map, robot_loc, distance_restriction=0):
             candidate_goals.append(curr_node)
             continue
         else:
-            visited[curr_node] = (curr_node_distance, True)
+            is_closed[curr_node] = True
 
         # Add neighbors to the priority queue
         for neighbor, neighbor_cost in path_planning.get_free_neighbors_with_cost(map, curr_node):
             neighbor_distance = curr_node_distance + neighbor_cost
 
-            if neighbor not in visited:
-                visited[neighbor] = (neighbor_distance, False)
+            if neighbor not in is_closed:
+                is_closed[neighbor] = False
                 heapq.heappush(priority_queue, (neighbor_distance, neighbor))
 
     # Add the rejected candidate goals back to the priority queue to reconsider them later
+    # An arbitrary distance value is used because the distance will be recalculated with
+    # the updated robot location.
     for point in candidate_goals:
-        heapq.heappush(priority_queue, (visited[point][0], point))
+        heapq.heappush(priority_queue, (0, point))
 
     return goal if goal is not None else furthest_rejected_goal
 
