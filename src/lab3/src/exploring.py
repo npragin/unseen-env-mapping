@@ -14,7 +14,10 @@ def plot_with_explore_points(map, zoom=1.0, robot_loc=None, candidate_points=Non
     and the chosen point for exploration.
 
     Parameters:
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         zoom (float): The zoom level
         robot_loc (tuple): The robot location as an (x, y) pair
         candidate_points (list): A list of tuples representing candidate exploration
@@ -65,7 +68,10 @@ def convolutional_frontier_detection(map):
     points. A frontier point is a point in free space adjacent to unseen space.
     
     Parameters:
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
     
     Returns:
         numpy.ndarray: List of all frontier points in the map with a shape of (N, 2)
@@ -108,7 +114,10 @@ def expanding_wavefront_frontier_detection(map, robot_loc, distance_restriction=
         processing the same point twice.
 
         Parameters:
-            map (numpy.ndarray): The thresholded image of the map
+            map (numpy.ndarray): A thresholded image of the map where:
+                                    - 0 represents an obstacle
+                                    - 128 represents unseen space
+                                    - 255 represents free space
             robot_loc (tuple): (x, y) pair representing the robot's current position
             distance_restriction (float): Optional minimum distance between the selected
                                           frontier point and the robot.
@@ -222,7 +231,10 @@ def find_highest_information_gain_point(candidate_points, map, radius):
 
     Parameters:
         candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         radius (int): Radius in pixels to check for unseen points around each candidate
                       point
 

@@ -14,7 +14,10 @@ def plot_with_path(map, zoom=1.0, robot_loc=None, goal=None, path=None):
     Plot the map and, optionally, the robot location, goal location, and proposed path
 
     Parameters:
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         zoom (float): The zoom level
         robot_loc (tuple): The robot location as an (x, y) pair
         goal (tuple): The goal location as an (x, y) pair
@@ -67,7 +70,10 @@ def is_wall(map, loc):
     Returns true if the location in the map is an obstacle
 
     Parameters:
-        map (numpy.ndarray): The thresholded image
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         loc (tuple): The coordinate as an (x, y) pair
     """
     if map[loc[1], loc[0]] == 0:
@@ -79,7 +85,10 @@ def is_unseen(map, loc):
     Returns true if the location in the map is unseen
 
     Parameters:
-        map (numpy.ndarray): The thresholded image
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         loc (tuple): The coordinate as an (x, y) pair
     """
     if map[loc[1], loc[0]] == 128:
@@ -91,7 +100,10 @@ def is_free(map, loc):
     Returns true if the location in the map is free space
 
     Parameters:
-        map (numpy.ndarray): The thresholded image
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         loc (tuple): The coordinate as an (x, y) pair
     """
     if map[loc[1], loc[0]] == 255:
@@ -122,7 +134,10 @@ def convert_image(occupancy_grid, wall_threshold, free_threshold):
                                 mark a point in space as free
 
     Returns:
-        numpy.ndarray:  A thresholded image with values 0, 128, and 255
+        numpy.ndarray:  A thresholded image of the map where:
+                            - 0 represents an obstacle
+                            - 128 represents unseen space
+                            - 255 represents free space
                         The dimensions will match the occupancy_grid parameter
     """
     # Assume all is unseen
@@ -158,7 +173,10 @@ def convert_map_to_configuration_space(occupancy_grid, wall_threshold, free_thre
                                center point can safely navigate the configuration space
 
     Returns:
-        numpy.ndarray:  A thresholded image with values 0, 128, and 255
+        numpy.ndarray:  A thresholded image of the map where:
+                            - 0 represents an obstacle
+                            - 128 represents unseen space
+                            - 255 represents free space
                         The dimensions will match the map parameter
     """
 
@@ -183,7 +201,7 @@ def get_neighbors(map, loc):
     Returns a list of neighbors for a given location in the map
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -208,7 +226,7 @@ def get_neighbors_with_cost(map, loc):
     Returns a list of neighbors for a given location in the map with their cost to come
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -234,7 +252,7 @@ def get_free_neighbors(map, loc):
     Returns a list of neighbors in free space for a given location in the map
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -260,7 +278,7 @@ def get_free_neighbors_with_cost(map, loc):
     with their cost to come
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -286,7 +304,7 @@ def has_free_neighbor(map, loc):
     Returns a boolean indicating if a location in the map has a free neighbor
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -311,7 +329,7 @@ def has_unseen_neighbor(map, loc):
     Returns a boolean indicating if a location in the map has an unseen neighbor
 
     Parameters:
-        map (numpy.ndarray): The image
+        map (numpy.ndarray): The map
         loc (tuple): The location as a tuple (x, y)
     
     Returns:
@@ -382,6 +400,10 @@ def a_star(map, robot_loc, goal, map_metadata):
 
     Parameters:
         map (numpy.ndarray): A thresholded image in the configuration space of the robot
+                             where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         robot_loc (tuple): The location of the robot as (x, y) coordinates
         goal (tuple): The target location as (x, y) coordinates
         map_metadata (MapMetadata): The current map metadata
@@ -456,6 +478,10 @@ def multi_goal_a_star(map, robot_loc, goals):
 
     Parameters:
         map (numpy.ndarray): A thresholded image in the configuration space of the robot
+                             where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         robot_loc (tuple): The location of the robot as (x, y) coordinates
         goals (set): A set of (x, y) pairs representing target locations
 
