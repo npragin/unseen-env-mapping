@@ -21,8 +21,21 @@ class StudentDriver(Driver):
 		self._robot_width = 0.38
 		self._robot_length = 0.44
 		self._robot_diagonal_length = np.linalg.norm((self._robot_length, self._robot_width))
+		self._robot_maximal_radius = self._robot_diagonal_length / 2
 
-		self._lidar_offset = self._robot_diagonal_length / 2
+		self._lidar_offset = self._robot_maximal_radius
+
+		self._max_linear_velocity = 0.5 # Real kinematic constraint
+		self._max_angular_velocity = 5  # Imposed kinematic constraint
+		self._minimum_safe_distance = self._robot_maximal_radius
+
+		# Terms to control the steepness/relative importance of terms of tanh functions
+		self._angular_alpha = 1
+		self._angular_beta = 1
+		self._linear_alpha = 1
+
+		self._target_angular_factor = 0.75
+		self._target_linear_factor = 1
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		"""
@@ -100,8 +113,8 @@ class StudentDriver(Driver):
 
 			# Set the linear and angular velocity to a linear scale of the distance and
 			# angle to the target
-			command.linear.x = target_distance
-			command.angular.z = target_angle * 0.75
+			command.linear.x = target_distance * self._target_linear_factor
+			command.angular.z = target_angle * self._target_angular_factor
 
 		# If there are obstacles in front of the robot, we need to avoid them
 		else:
@@ -153,8 +166,8 @@ class StudentDriver(Driver):
 
 			# Use a carefully tuned tanh function to turn faster as obstacles get closer
 			# and drive slower as obstacles get closer.
-			command.angular.z = 4 * tanh(1 * safe_direction * (1 / obstacle_distance)) * (1 if safe_direction > 0 else -1)
-			command.linear.x = 0.5 * tanh(1 * obstacle_distance) if obstacle_distance > 0.25 else 0
+			command.angular.z = self._max_angular_velocity * tanh(self._angular_alpha * safe_direction + (self._angular_beta / obstacle_distance)) * np.sign(safe_direction)
+			command.linear.x = self._max_linear_velocity * tanh(self._linear_alpha * obstacle_distance) if obstacle_distance >= self._minimum_safe_distance else 0
 
 		return command
 
