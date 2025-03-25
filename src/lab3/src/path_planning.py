@@ -350,7 +350,7 @@ def generate_alternate_goal(visited_points, goal):
 def reconstruct_path(visited, goal, map_metadata):
     """
     Given the visited data structure, a goal location, and map metadata, returns a path
-    from the robot's location to the goal.
+    from the robot's location to the goal. Path is in the map coordinate frame.
 
     Parameters:
         visited (dict): A dictionary of (x, y) pairs mapped to (_, parent_node, _), where
@@ -365,11 +365,7 @@ def reconstruct_path(visited, goal, map_metadata):
     path = []
     current = goal
     while current is not None:
-        # Convert point from map space to free space
-        current_x_in_space = current[0] * map_metadata.resolution + map_metadata.origin.position.x
-        current_y_in_space = current[1] * map_metadata.resolution + map_metadata.origin.position.y
-
-        path.append((current_x_in_space, current_y_in_space))
+        path.append(current)
         current = visited[current][1]
 
     # We construct the path from the goal to the robot, but need the reverse
@@ -393,7 +389,7 @@ def a_star(map, robot_loc, goal, map_metadata):
         map_metadata (MapMetadata): The current map metadata
     Returns:
         numpy.ndarray: A list of tuples representing the path from the robot's location to the
-                       goal location
+                       goal location in the map space.
     """
     # Initialize data structures for A*
     # visited stores (distance from robot, parent node, is node closed) and is indexed using (i,j) tuple
