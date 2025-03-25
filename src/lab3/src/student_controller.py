@@ -93,7 +93,6 @@ class StudentController(RobotController):
 				# Calculate robot radii for future use
 				robot_diagonal_length_in_pixels = self._robot_diagonal_length_in_meters / map_metadata.resolution
 				maximal_robot_radius_in_pixels = ceil(robot_diagonal_length_in_pixels / 2)
-				minimal_robot_radius_in_meters = floor(min(self._robot_length_in_meters, self._robot_width_in_meters) / 2)
 
 				# Convert the map to a threshold image in the configuration space using
 				# the maximal diameter to ensure the robot can always safely rotate in place
