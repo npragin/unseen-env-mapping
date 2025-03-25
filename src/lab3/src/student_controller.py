@@ -77,7 +77,7 @@ class StudentController(RobotController):
 		# This try-except block will deal with that.
 		try:
 			# Only generate a goal point if we don't have any waypoints or if we are stuck
-			if self._waypoints is None or len(self._waypoints) == 0 or time.time() - self._time_since_progress > 8:
+			if self._waypoints is None or len(self._waypoints) == 0 or time.time() - self._time_since_progress > self._idle_time_allowed:
 				# Update time since we last made progress
 				self._time_since_progress = time.time()
 
