@@ -8,10 +8,10 @@ import numpy as np
 from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import a_star, convert_map_to_configuration_space, is_free
-from exploring import expanding_wavefront_frontier_detection, generate_waypoints, convolutional_frontier_detection_convolution, find_highest_information_gain_point, find_closest_point, find_furthest_point
+from exploring import expanding_wavefront_frontier_detection, generate_waypoints, convolutional_frontier_detection, find_highest_information_gain_point, find_closest_point, find_furthest_point
 from helpers import world_to_map, save_map_as_image, find_nearest_free_space, path_from_map_to_world
 import time
-from math import ceil, floor
+from math import ceil
 
 class StudentController(RobotController):
 	'''
