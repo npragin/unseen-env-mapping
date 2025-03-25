@@ -8,7 +8,7 @@ import numpy as np
 from controller import RobotController
 #Import path_planning and exploring code
 from path_planning import a_star, convert_map_to_configuration_space, is_free
-from exploring import new_find_best_point, generate_waypoints, find_frontier_points_convolution, find_highest_information_gain_point, find_closest_point, find_furthest_point
+from exploring import expanding_wavefront_frontier_detection, generate_waypoints, convolutional_frontier_detection_convolution, find_highest_information_gain_point, find_closest_point, find_furthest_point
 from helpers import world_to_map, save_map_as_image, find_nearest_free_space, path_from_map_to_world
 import time
 from math import ceil, floor
@@ -106,7 +106,7 @@ class StudentController(RobotController):
 				Stale code that chose a goal point based on an information-theoretic
 				approach or a convolution-based geometric approach. Kept for reference.
 
-				candidate_points = find_frontier_points_convolution(config_space_map)
+				candidate_points = convolutional_frontier_detection(config_space_map)
 
 				# goal_point = find_furthest_point(candidate_points, self._robot_position_map)
 				# goal_point = find_closest_point(candidate_points, self._robot_position_map, 0)
@@ -117,7 +117,7 @@ class StudentController(RobotController):
 				# Using half the lidar range as a preferred minimum distance to balance
 				# information gain and scan overlap
 				lidar_range_in_pixels = ceil(self._lidar_range_in_meters / map_metadata.resolution)
-				goal_point = new_find_best_point(config_space_map, self._robot_position_map, lidar_range_in_pixels / 2)
+				goal_point = expanding_wavefront_frontier_detection(config_space_map, self._robot_position_map, lidar_range_in_pixels / 2)
 
 				# If no goal point is found, we are done and save the map as an image
 				if goal_point is None:

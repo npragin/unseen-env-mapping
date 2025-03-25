@@ -14,7 +14,10 @@ def plot_with_explore_points(map, zoom=1.0, robot_loc=None, candidate_points=Non
     and the chosen point for exploration.
 
     Parameters:
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         zoom (float): The zoom level
         robot_loc (tuple): The robot location as an (x, y) pair
         candidate_points (list): A list of tuples representing candidate exploration
@@ -59,13 +62,16 @@ def plot_with_explore_points(map, zoom=1.0, robot_loc=None, candidate_points=Non
         axs[i].set_ylim(height / 2 - zoom * height / 2, height / 2 + zoom * height / 2)
 
 # --------------------------------------- Goal point selection ---------------------------------------
-def find_frontier_points_convolution(map):
+def convolutional_frontier_detection(map):
     """
     Given a thresholded image of a map, this function returns a list of all frontier
     points. A frontier point is a point in free space adjacent to unseen space.
     
     Parameters:
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
     
     Returns:
         numpy.ndarray: List of all frontier points in the map with a shape of (N, 2)
@@ -98,7 +104,27 @@ def find_frontier_points_convolution(map):
 is_closed = {}
 priority_queue = []
 
-def new_find_best_point(map, robot_loc, distance_restriction=0):
+def expanding_wavefront_frontier_detection(map, robot_loc, distance_restriction=0):
+    """
+        Returns the closest frontier point on the map to the robot with an optional
+        minimum distance.
+
+        This algorithm uses the Expanding Wavefront Algorithm proposed by Quin, et al.
+        leveraging global data structures to guarantee completeness and prevent
+        processing the same point twice.
+
+        Parameters:
+            map (numpy.ndarray): A thresholded image of the map where:
+                                    - 0 represents an obstacle
+                                    - 128 represents unseen space
+                                    - 255 represents free space
+            robot_loc (tuple): (x, y) pair representing the robot's current position
+            distance_restriction (float): Optional minimum distance between the selected
+                                          frontier point and the robot.
+        Returns:
+            tuple: Returns the closest frontier point as an (x, y) pair on the map to
+                   robot_loc, at least as far from the robot as distance_restriction. 
+    """
     # Initialize data structures for Dijkstra
     # is_closed is indexed using (x, y) tuple
     global is_closed, priority_queue
@@ -204,7 +230,10 @@ def find_highest_information_gain_point(candidate_points, map, radius):
 
     Parameters:
         candidate_points (numpy.ndarray): List of (x, y) pairs of candidate points
-        map (numpy.ndarray): The thresholded image of the map
+        map (numpy.ndarray): A thresholded image of the map where:
+                                - 0 represents an obstacle
+                                - 128 represents unseen space
+                                - 255 represents free space
         radius (int): Radius in pixels to check for unseen points around each candidate
                       point
 
