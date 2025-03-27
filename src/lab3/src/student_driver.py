@@ -34,8 +34,8 @@ class StudentDriver(Driver):
 		self._angular_beta = 1
 		self._linear_alpha = 1
 
-		self._target_angular_factor = 0.75
-		self._target_linear_factor = 1
+		self._target_angular_factor = 1
+		self._target_linear_factor = 0.6
 
 	def close_enough_to_waypoint(self, distance, target, lidar):
 		"""
@@ -113,8 +113,8 @@ class StudentDriver(Driver):
 
 			# Set the linear and angular velocity to a linear scale of the distance and
 			# angle to the target
-			command.linear.x = target_distance * self._target_linear_factor
-			command.angular.z = target_angle * self._target_angular_factor
+			command.linear.x = min(target_distance * self._target_linear_factor, self._max_linear_velocity)
+			command.angular.z = min(target_angle * self._target_angular_factor, self._max_angular_velocity)
 
 		# If there are obstacles in front of the robot, we need to avoid them
 		else:
