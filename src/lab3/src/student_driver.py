@@ -25,6 +25,12 @@ class StudentDriver(Driver):
 
 		self._lidar_offset = self._robot_maximal_radius
 
+		# The obstacle threshold is the distance an obstacle must be from the robot to
+		# consider an obstacle in the robot's path. We use half the diagonal length to
+		# ensure the robot can rotate without collision. We add the lidar offset to
+		# account for the fact that the lidar is in the center of the robot.
+		self._obstacle_threshold = self._robot_maximal_radius + self._lidar_offset
+
 		self._max_linear_velocity = 0.5 # Real kinematic constraint
 		self._max_angular_velocity = 5  # Imposed kinematic constraint
 		self._minimum_safe_distance = self._robot_maximal_radius
@@ -78,24 +84,14 @@ class StudentDriver(Driver):
 		# Initialize twist command with zero values to be populated below
 		command = Driver.zero_twist()
 
-		# We will use the diagonal length of the robot to determine if there is something
-		# in the robot's path. We use the diagonal length instead of the width to ensure
-		# the robot can always rotate without collision.
-		d = self._robot_diagonal_length
-
 		# Extracting relevant data from the lidar into numpy arrays
 		thetas = np.linspace(lidar.angle_min, lidar.angle_max, len(lidar.ranges))
 		ranges = np.array(lidar.ranges)
 
-		# The obstacle threshold is the distance an obstacle must be from the robot to
-		# consider an obstacle in the robot's path. We use half the diagonal length to ensure
-		# the robot can rotate without collision. We add half the robot's diagonal length to
-		# account for the fact that the lidar is in the center of the robot. We then use
-		# this distance with some trigonometry to gather the indices of lidar readings
-		# that correspond to scans in front of the robot and have a reading less than the
-		# obstacle threshold. See issue #55 for more info.
-		obstacle_threshold = d / 2 + self._lidar_offset
-		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= d/2) & (ranges < obstacle_threshold))[0]
+		# We then use the obstacle threshold with some trigonometry to gather the indices
+		# of lidar readings corresponding to scans in front of the robot and have a
+		# reading less than the obstacle threshold. 
+		obstacles_in_front_idx = np.where((ranges * np.abs(np.sin(thetas)) <= self._robot_maximal_radius) & (ranges < self._obstacle_threshold))[0]
 
 		# The angle from the robot to the target point
 		target_angle = atan2(target[1], target[0])
@@ -119,9 +115,9 @@ class StudentDriver(Driver):
 		# If there are obstacles in front of the robot, we need to avoid them
 		else:
 			# Get the obstacle distance by finding the minimum reading from the lidar of
-			# the scans in front of the robot. Subtract half the lidar offset from the
-			# minimum distance to an obstacle to account for the fact that the lidar is
-			# in the center of the robot, so the obstacle is closer than the lidar reading indicates.
+			# the scans in front of the robot. Subtract the lidar offset from the reading 
+			# to account for the fact that the lidar is #in the center of the robot, so
+			# the obstacle is closer than the lidar reading indicates.
 			obstacle_distance = np.min(ranges[obstacles_in_front_idx]) - self._lidar_offset
 
 			# Given the obstacle distance and the robot's diagonal length, we can calculate
@@ -129,14 +125,14 @@ class StudentDriver(Driver):
 			# for the robot to continue toward the goal. Using this angle, we can determine
 			# the number of adjacent scans that must have a reading greater than the
 			# obstacle threshold to consider that direction safe.
-			angle_of_concern = 2 * abs(np.arctan(obstacle_threshold / 2 / obstacle_distance))
+			angle_of_concern = 2 * abs(np.arctan(self._robot_maximal_radius / obstacle_distance))
 			angle_per_scan = ((lidar.angle_max - lidar.angle_min) / len(lidar.ranges))
 			num_scans_of_concern = ceil(angle_of_concern / angle_per_scan)
 
 			# Using the number of scans of concern, we use a sliding window to find all
 			# the cones that are free of obstacles.
 			cones = np.lib.stride_tricks.sliding_window_view(ranges, num_scans_of_concern)
-			safe_cones_idx = np.nonzero(np.all(cones > obstacle_threshold, axis=1))[0]
+			safe_cones_idx = np.nonzero(np.all(cones > self._obstacle_threshold, axis=1))[0]
 
 			# If there are no safe cones, rotate to face the goal. We can face the goal
 			# instead of rotating 180 degrees (which you might want to do to find free
