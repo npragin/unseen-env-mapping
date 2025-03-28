@@ -29,16 +29,15 @@ class StudentDriver(Driver):
 		# consider an obstacle in the robot's path. We use half the diagonal length to
 		# ensure the robot can rotate without collision. We add the lidar offset to
 		# account for the fact that the lidar is in the center of the robot.
-		self._obstacle_threshold = self._robot_maximal_radius + self._lidar_offset
+		self._obstacle_threshold = (self._robot_maximal_radius + self._lidar_offset) * 1.5
 
+		self._minimum_safe_distance = self._lidar_offset
 		self._max_linear_velocity = 0.5 # Real kinematic constraint
 		self._max_angular_velocity = 5  # Imposed kinematic constraint
-		self._minimum_safe_distance = self._robot_maximal_radius
 
 		# Terms to control the steepness/relative importance of terms of tanh functions
-		self._angular_alpha = 1
-		self._angular_beta = 1
-		self._linear_alpha = 1
+		self._angular_alpha = 1.5
+		self._linear_alpha = 3
 
 		self._target_angular_factor = 1
 		self._target_linear_factor = 0.6
@@ -162,7 +161,8 @@ class StudentDriver(Driver):
 
 			# Use a carefully tuned tanh function to turn faster as obstacles get closer
 			# and drive slower as obstacles get closer.
-			command.angular.z = self._max_angular_velocity * tanh(self._angular_alpha * safe_direction + (self._angular_beta / obstacle_distance)) * np.sign(safe_direction)
+			scaled_safe_direction = (safe_direction + (pi / 2)) * (self._obstacle_threshold - self._lidar_offset) / pi
+			command.angular.z = self._max_angular_velocity * tanh(self._angular_alpha * (scaled_safe_direction + obstacle_distance)) * np.sign(safe_direction)
 			command.linear.x = self._max_linear_velocity * tanh(self._linear_alpha * obstacle_distance) if obstacle_distance >= self._minimum_safe_distance else 0
 
 		return command
