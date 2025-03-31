@@ -1,5 +1,15 @@
 # Autonomous Mapping of Unseen Environments
 
+<div align="center">
+<img src="readme_assets/wavefront_demo.gif" width="40%">
+<p><em>Visualization of the Expanding Wavefront Frontier Detection algorithm. This sequence shows 14 iterations required to map the environment in the video above Each frame alternates between displaying points persisted from previous iterations (cyan) and points processed in the current iteration (also cyan) against a backdrop where pink represents unseen space, blue indicates walls, and yellow shows free space.</em></p>
+</div>
+
+<div align="center">
+<img src="readme_assets/completed_map.png" width="40%">
+<p><em>Map generated from exploration in the video above.</em></p>
+</div>
+
 ## Project Overview
 This project implements an autonomous mapping system for a simulated TurtleBot equipped with a LIDAR sensor in ROS. The robot operates under non-holonomic constraints and must explore an unknown environment to generate a complete map autonomously.
 
