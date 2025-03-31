@@ -1,6 +1,11 @@
 # Autonomous Mapping of Unseen Environments
 
 <div align="center">
+<img src="readme_assets/exploration_demo.gif" width="50%">
+<p><em>Demonstration of robot exploring an unseen 6-room environment. The left panel is RViz, showing the robot's current map with unseen space in dark grey, seen space in light grey, and walls in black. The top right panel is the ground truth environment, with the robot as a red rectangle. The bottom right panel is the terminal output.</em></p>
+</div>
+
+<div align="center">
 <img src="readme_assets/wavefront_demo.gif" width="50%">
 <p><em>Visualization of the Expanding Wavefront Frontier Detection algorithm. This sequence shows 14 iterations required to map the environment in the video above Each frame alternates between displaying points persisted from previous iterations (cyan) and points processed in the current iteration (also cyan) against a backdrop where pink represents unseen space, blue indicates walls, yellow shows free space, the black star is the robot, and the green star is the selected goal.</em></p>
 </div>
