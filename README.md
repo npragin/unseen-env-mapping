@@ -1,12 +1,12 @@
 # Autonomous Mapping of Unseen Environments
 
 <div align="center">
-<img src="readme_assets/wavefront_demo.gif" width="40%">
-<p><em>Visualization of the Expanding Wavefront Frontier Detection algorithm. This sequence shows 14 iterations required to map the environment in the video above Each frame alternates between displaying points persisted from previous iterations (cyan) and points processed in the current iteration (also cyan) against a backdrop where pink represents unseen space, blue indicates walls, and yellow shows free space.</em></p>
+<img src="readme_assets/wavefront_demo.gif" width="50%">
+<p><em>Visualization of the Expanding Wavefront Frontier Detection algorithm. This sequence shows 14 iterations required to map the environment in the video above Each frame alternates between displaying points persisted from previous iterations (cyan) and points processed in the current iteration (also cyan) against a backdrop where pink represents unseen space, blue indicates walls, yellow shows free space, the black star is the robot, and the green star is the selected goal.</em></p>
 </div>
 
 <div align="center">
-<img src="readme_assets/completed_map.png" width="40%">
+<img src="readme_assets/completed_map.png" width="50%">
 <p><em>Map generated from exploration in the video above.</em></p>
 </div>
 
